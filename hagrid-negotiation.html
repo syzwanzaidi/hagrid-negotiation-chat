@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting with Mr Hagrid</title>
+<style>
+  :root {
+    --bg: #f3f1ec; --surface: #ffffff; --surface-2: #f8f7f4; --ink: #1d2125; --muted: #6b7177;
+    --line: #e3e0d9; --accent: #2f5d50; --accent-ink: #ffffff; --accent-soft: #e4eeea;
+    --me: #2f5d50; --me-ink: #ffffff; --them: #ffffff; --them-ink: #1d2125;
+    --good: #2e7d4f; --good-soft: #e5f2ea; --bad: #b4442c; --bad-soft: #f8e8e3; --warn: #9a6512; --warn-soft: #f6edda;
+    --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131517; --surface: #1c1f22; --surface-2: #22262a; --ink: #e8e6e1; --muted: #9aa0a6;
+      --line: #2e3337; --accent: #74b39d; --accent-ink: #0f1412; --accent-soft: #1f2e29;
+      --me: #2f5d50; --me-ink: #eef5f2; --them: #22262a; --them-ink: #e8e6e1;
+      --good: #6cc391; --good-soft: #1b2b22; --bad: #e88a73; --bad-soft: #2f1f1b; --warn: #e0b060; --warn-soft: #2d2618;
+      --shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+
+  /* ---------- setup ---------- */
+  #setup { padding: 40px 0 60px; }
+  .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
+  .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 20px; flex: none; }
+  .avatar.sm { width: 38px; height: 38px; font-size: 16px; }
+  h1 { font-size: 26px; line-height: 1.2; margin: 0; letter-spacing: -.01em; }
+  .sub { color: var(--muted); margin: 2px 0 0; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; box-shadow: var(--shadow); }
+  label.f { display: block; font-weight: 600; margin: 0 0 6px; }
+  .hint { color: var(--muted); font-size: 13px; font-weight: 400; }
+  input[type=text], textarea { width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; outline: none; }
+  input[type=text]:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  textarea { resize: vertical; min-height: 70px; }
+  .field { margin-bottom: 20px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip { border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .seg button { text-align: left; border: 1px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+  .seg button b { display: block; }
+  .seg button span { color: var(--muted); font-size: 12.5px; line-height: 1.35; display: block; }
+  .seg button[aria-pressed=true] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 10px 16px; font-weight: 600; }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn.primary:hover { filter: brightness(1.07); }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+  .btn.ghost:hover { color: var(--ink); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .resume { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: var(--warn-soft); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; }
+  h2 { font-size: 15px; margin: 34px 0 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+  .hist { display: grid; gap: 8px; }
+  .hist-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; text-align: left; width: 100%; }
+  .hist-item:hover { border-color: var(--muted); }
+  .hist-item .t { flex: 1; min-width: 0; }
+  .hist-item .t b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .hist-item .t span { color: var(--muted); font-size: 13px; }
+  .badge { font-weight: 700; border-radius: 8px; padding: 3px 9px; font-size: 14px; flex: none; }
+  .b-good { background: var(--good-soft); color: var(--good); }
+  .b-mid { background: var(--warn-soft); color: var(--warn); }
+  .b-bad { background: var(--bad-soft); color: var(--bad); }
+  .empty { color: var(--muted); font-size: 14px; }
+
+  /* ---------- chat ---------- */
+  #chat { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+  .top { background: var(--surface); border-bottom: 1px solid var(--line); }
+  .top .wrap { display: flex; align-items: center; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
+  .who { flex: 1; min-width: 0; }
+  .who b { display: block; }
+  .who span { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #3fae6a; display: inline-block; }
+  .topic-bar { background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .topic-bar .wrap { padding-top: 7px; padding-bottom: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #log { flex: 1; overflow-y: auto; padding: 18px 0 8px; }
+  #log .wrap { display: flex; flex-direction: column; gap: 6px; }
+  .scene { align-self: center; color: var(--muted); font-size: 13px; font-style: italic; margin: 6px 0 10px; text-align: center; }
+  .msg { max-width: 78%; padding: 9px 13px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; box-shadow: var(--shadow); }
+  .msg time { display: block; font-size: 11px; opacity: .6; margin-top: 3px; text-align: right; }
+  .msg.them { align-self: flex-start; background: var(--them); color: var(--them-ink); border: 1px solid var(--line); border-bottom-left-radius: 5px; }
+  .msg.me { align-self: flex-end; background: var(--me); color: var(--me-ink); border-bottom-right-radius: 5px; }
+  .msg.me + .msg.them, .msg.them + .msg.me { margin-top: 8px; }
+  .typing { align-self: flex-start; display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; padding: 4px 2px; }
+  .dots { display: inline-flex; gap: 4px; background: var(--them); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+  .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+  .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  .err { align-self: center; background: var(--bad-soft); color: var(--bad); border-radius: 10px; padding: 10px 14px; font-size: 13.5px; max-width: 92%; }
+  .err button { margin-left: 8px; }
+  .closing { align-self: center; display: flex; gap: 10px; align-items: center; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 12px; padding: 10px 14px; margin-top: 10px; }
+  .composer { background: var(--surface); border-top: 1px solid var(--line); }
+  .composer .wrap { display: flex; gap: 10px; align-items: flex-end; padding-top: 10px; padding-bottom: 12px; }
+  #input { flex: 1; min-height: 44px; max-height: 160px; resize: none; border-radius: 22px; padding: 11px 16px; }
+  #send { border-radius: 50%; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; flex: none; }
+  .tip { color: var(--muted); font-size: 12px; padding-bottom: 8px; }
+
+  /* ---------- scorecard ---------- */
+  #score { position: fixed; inset: 0; background: var(--bg); overflow-y: auto; z-index: 10; }
+  #score .wrap { padding-top: 30px; padding-bottom: 60px; }
+  .loading { text-align: center; padding: 120px 0; color: var(--muted); }
+  .spinner { width: 34px; height: 34px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hero { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+  .ring { position: relative; width: 116px; height: 116px; flex: none; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .num { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-size: 34px; font-weight: 800; line-height: 1; }
+  .ring .num small { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 4px; }
+  .hero .txt { flex: 1; min-width: 220px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 10px; border-radius: 999px; margin-bottom: 8px; }
+  .headline { font-size: 20px; font-weight: 700; line-height: 1.3; margin: 0 0 6px; }
+  .terms { color: var(--muted); margin: 0; }
+  .sec { margin-top: 26px; }
+  .sec h3 { font-size: 16px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .sec h3 .ic { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 13px; }
+  .pt { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+  .pt q { display: block; font-style: italic; quotes: "\201C" "\201D"; }
+  .pt .why { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .rewrite .old { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--bad); }
+  .rewrite .new { margin-top: 6px; font-weight: 600; }
+  .rewrite .new::before { content: "Try: "; color: var(--good); }
+  .hidden-hand { background: var(--surface); border: 1px dashed var(--muted); border-radius: 12px; padding: 14px 16px; }
+  .hidden-hand dl { margin: 0; display: grid; grid-template-columns: 140px 1fr; gap: 6px 14px; }
+  .hidden-hand dt { color: var(--muted); font-size: 13.5px; }
+  .hidden-hand dd { margin: 0; }
+  @media (max-width: 560px) {
+    .seg { grid-template-columns: 1fr; }
+    .msg { max-width: 88%; }
+    .hidden-hand dl { grid-template-columns: 1fr; }
+    .hidden-hand dt { margin-top: 6px; }
+  }
+
+  dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); width: min(620px, calc(100vw - 32px)); padding: 22px; }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  dialog h3 { margin: 0 0 16px; }
+</style>
+</head>
+<body>
+
+<!-- ============ SETUP ============ -->
+<section id="setup" class="wrap">
+  <div class="brand">
+    <div class="avatar">H</div>
+    <div>
+      <h1>Meeting with Mr Hagrid</h1>
+      <p class="sub">Rehearse the conversation with your director before the real one.</p>
+    </div>
+  </div>
+
+  <div id="resumeBox" class="resume hidden">
+    <div><b>Unfinished meeting</b><br><span class="hint" id="resumeTopic"></span></div>
+    <div class="row"><button class="btn" id="discardBtn">Discard</button><button class="btn primary" id="resumeBtn">Go back in</button></div>
+  </div>
+
+  <div class="card">
+    <div class="field">
+      <label class="f" for="topic">What do you want to talk to him about?</label>
+      <input type="text" id="topic" placeholder="e.g. Raise my basic salary from RM3,500 to RM4,500" autocomplete="off">
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="field">
+      <label class="f" for="details">Background he'd already know <span class="hint">(optional)</span></label>
+      <textarea id="details" placeholder="e.g. I've been here 2 years, rebuilt the ERP integration, no raise since I joined."></textarea>
+    </div>
+    <div class="field">
+      <label class="f">How tough is he today?</label>
+      <div class="seg" id="diff">
+        <button type="button" data-v="easy" aria-pressed="false"><b>Easy</b><span>Good mood, open to a fair case</span></button>
+        <button type="button" data-v="normal" aria-pressed="true"><b>Normal</b><span>Pushes back, wants evidence</span></button>
+        <button type="button" data-v="hard" aria-pressed="false"><b>Hard</b><span>Stressed, lowballs, plays games</span></button>
+      </div>
+    </div>
+    <div class="row" style="justify-content: space-between;">
+      <button class="btn ghost" id="settingsBtn">Settings</button>
+      <button class="btn primary" id="knockBtn">Knock on his door</button>
+    </div>
+  </div>
+
+  <h2>Past meetings</h2>
+  <div class="hist" id="hist"></div>
+</section>
+
+<!-- ============ CHAT ============ -->
+<section id="chat" class="hidden">
+  <div class="top">
+    <div class="wrap">
+      <div class="avatar sm">H</div>
+      <div class="who"><b>Mr Hagrid</b><span><i class="dot"></i><span id="status">Director · in his office</span></span></div>
+      <button class="btn" id="endBtn">End meeting</button>
+    </div>
+  </div>
+  <div class="topic-bar"><div class="wrap" id="topicBar"></div></div>
+  <div id="log"><div class="wrap" id="logInner"></div></div>
+  <div class="composer">
+    <div class="wrap" style="flex-direction: column; align-items: stretch; gap: 0;">
+      <div style="display: flex; gap: 10px; align-items: flex-end;">
+        <textarea id="input" rows="1" placeholder="Say something to Mr Hagrid…"></textarea>
+        <button class="btn primary" id="send" aria-label="Send">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      <div class="tip">Enter to send · Shift+Enter for a new line · "End meeting" when you're done</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCORECARD ============ -->
+<section id="score" class="hidden"><div class="wrap" id="scoreInner"></div></section>
+
+<!-- ============ SETTINGS ============ -->
+<dialog id="settings">
+  <h3>Settings</h3>
+  <div class="field">
+    <label class="f" for="sUrl">n8n webhook base URL</label>
+    <input type="text" id="sUrl">
+  </div>
+  <div class="field">
+    <label class="f" for="sPersona">Who Mr Hagrid is <span class="hint">(make him like the real one)</span></label>
+    <textarea id="sPersona" rows="6"></textarea>
+  </div>
+  <div class="field">
+    <label class="f" for="sMe">Who you are</label>
+    <textarea id="sMe" rows="3"></textarea>
+  </div>
+  <div class="row" style="justify-content: space-between;">
+    <button class="btn ghost" id="sReset">Reset to defaults</button>
+    <div class="row"><button class="btn" id="sCancel">Cancel</button><button class="btn primary" id="sSave">Save</button></div>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  // ---------------- config ----------------
+  const DEFAULTS = {
+    url: 'http://localhost:5678/webhook',
+    persona: "Mr Hagrid, Director of a packaging factory in Selangor. Late 50s, came up from operations and sales, not technical. Practical and cost-conscious: cares about production uptime, customer deadlines, cost, and what the other staff will think. Friendly in a gruff way, always busy, little patience for long explanations. Respects people who can show what their work did for the factory; gets annoyed by complaining or comparing with colleagues. Speaks plain, direct English and rarely uses slang.",
+    me: "The company's IT person: a contract IT developer in a small IT team, handling the ERP, factory systems and anything with a cable. Basic salary RM3,500.",
+  };
+  const TOPICS = [
+    'Raise my basic salary from RM3,500 to RM4,500',
+    'Convert my contract to a permanent position',
+    'Budget for a new server before the old one dies',
+    'Work from home 2 days a week',
+    'Hire a junior IT assistant',
+    'Push the ERP go-live deadline back by one month',
+  ];
+  const OPENERS = {
+    easy: ["Ah, come in, come in. What's up?", "Oh, it's you. Sit, sit. What can I do for you?"],
+    normal: ["Ya, come in. What is it?", "Come in. Make it quick ah, I got a meeting at 3.", "Hmm? Ya, what's up?"],
+    hard: ["What now? The bank is calling me in ten minutes.", "Ya, what. Don't tell me the system down again.", "Make it fast. Very busy today."],
+  };
+
+  // ---------------- storage (never required) ----------------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('hagrid:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('hagrid:' + k, JSON.stringify(v)); } catch (e) {} },
+    del(k) { try { localStorage.removeItem('hagrid:' + k); } catch (e) {} },
+  };
+  let settings = Object.assign({}, DEFAULTS, store.get('settings', {}));
+  let session = null;       // current meeting
+  let briefPromise = null;  // hidden position being prepared
+  let busy = false;
+
+  // ---------------- helpers ----------------
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const uid = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const show = (id) => ['setup', 'chat', 'score'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
+  // <offer-logic>
+  // Hagrid's offer ladder: opening -> steps -> ceiling. A small model can't judge "was that a strong point?"
+  // reliably, so this code does: it counts NEW concrete evidence in your message and tells Hagrid
+  // exactly whether to improve his offer this turn. He only ever sees his current/next offer.
+  const EVIDENCE = {
+    impact: /\b(sav(e|ed|es|ing)|cut|reduc\w*|eliminat\w*|replac\w*|automat\w*|convert\w*|no more|don'?t have to|no longer|faster|quicker)\b/i,
+    metric: /\b(overtime|ot|hours?|days?|weeks?|manual|downtime|errors?|costs?|orders?|output|uptime|delays?)\b/i,
+    dependency: /\b(without (me|it|this|that)|depend\w*|critical|only (one|person)|nobody else|no one else|can'?t (operate|run|work)|cannot (operate|run|work))\b/i,
+    endorsement: /\b(said|says|told me|feedback|praised|thanked|happy with)\b/i,
+    market: /\b(market|other compan\w*|another compan\w*|offer from|recruiter|jobstreet|linkedin|survey|industry)\b/i,
+    contribution: /\b(built|build|developed|created|set up|integrat\w*|implemented|maintain\w*)\b/i,
+    commitment: /\b(you said|you promised|you told me|last time|as discussed|you mentioned|you agreed)\b/i,
+    responsibility: /\b(take on|take over|handle|in charge|responsib\w*|future projects?|new projects?|also do|lead|maint\w*)\b/i,
+    walkaway: /\b(not accept|won'?t accept|reject|decline|resign\w*|quit|leave the company|walk away|other offer|another offer|job offer|not (renew|extend|sign)|look(ing)? elsewhere)\b/i,
+  };
+  const WEAK = /\b(cost of living|bills|expensive|i need (the )?money|please|everyone else|my friend|unfair)\b/i;
+  const ladderOf = (b) => (b ? [b.opening_position, ...(Array.isArray(b.steps) ? b.steps : []), b.ceiling].filter(Boolean).map(String) : []);
+  const evidenceOf = (t) => ({ cats: Object.keys(EVIDENCE).filter((k) => EVIDENCE[k].test(t)), nums: t.replace(/,/g, '').match(/\d+(\.\d+)?/g) || [] });
+  // Returns { level, moved, points } for this turn. prevMine = your earlier messages (not this one).
+  function decideOffer(brief, difficulty, state, prevMine, text, topic) {
+    const ladder = ladderOf(brief);
+    const level = state.level ?? -1;
+    if (level < 0) { // first offer only once they actually raise the topic
+      const topicWords = String(topic || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 5);
+      const t = text.toLowerCase();
+      const asked = /\b(raise|salary|increment|increase|pay|money|budget|offer|propos\w*)\b|rm\s?\d|\d{3,}/.test(t) || topicWords.some((w) => t.includes(w));
+      return asked ? { level: 0, moved: true, points: 0 } : { level: -1, moved: false, points: 0 };
+    }
+    if (level >= ladder.length - 1) return { level, moved: false, points: 0 };
+    const seen = new Set();
+    prevMine.forEach((m) => { const e = evidenceOf(m); e.cats.forEach((c) => seen.add('c:' + c)); e.nums.forEach((n) => seen.add('n:' + n)); });
+    const e = evidenceOf(text);
+    const fresh = e.cats.filter((c) => !seen.has('c:' + c)).length + (e.nums.some((n) => !seen.has('n:' + n)) ? 1 : 0);
+    const strength = e.cats.length + (e.nums.length ? 1 : 0);
+    // A credible walk-away threat (first time only) is the strongest lever: it earns a move on its own.
+    const walk = e.cats.includes('walkaway') && !seen.has('c:walkaway');
+    // Offering more responsibility or citing the market is a full move on its own (first time).
+    const solo = ['responsibility', 'market'].some((c) => e.cats.includes(c) && !seen.has('c:' + c));
+    const strong = walk || solo || (strength >= 2 && fresh >= 1 && !WEAK.test(text) && text.trim().split(/\s+/).length >= 5);
+    const points = (state.points || 0) + (walk ? 2 : strong ? 1 : 0);
+    const need = difficulty === 'easy' ? 1 : difficulty === 'hard' ? 2 : level === 0 ? 1 : 2;
+    return points >= need ? { level: level + 1, moved: true, points: 0 } : { level, moved: false, points };
+  }
+  // </offer-logic>
+  const tagOf = (t) => (/\[\s*no\s*deal\s*\]/i.test(t) ? 'no deal' : /\[\s*deal\s*\]/i.test(t) ? 'deal' : null);
+  const tidy = (t) => String(t).replace(/\[\s*(no\s*)?deal\s*\]/gi, '').replace(/\[[A-Z ]{0,8}$/i, '').replace(/\*\*/g, '').replace(/[　-鿿가-힯＀-￯]+/g, '').replace(/^\s*(Mr\.? )?Hagrid:\s*/i, '').trim();
+  const saveSession = () => { if (session) store.set('session', session); };
+  const endpoint = (p) => settings.url.replace(/\/+$/, '') + '/' + p;
+  const payload = (extra) => Object.assign({
+    sessionId: session.id, topic: session.topic, details: session.details, difficulty: session.difficulty,
+    persona: settings.persona, me: settings.me, openingLine: session.openingLine, brief: session.brief,
+    offerLevel: session.offerLevel ?? -1, moved: !!session.moved,
+    recent: session.transcript.filter((m) => m.role === 'hagrid').slice(-4).map((m) => m.text),
+  }, extra);
+
+  async function postJSON(path, body) {
+    let res;
+    try {
+      res = await fetch(endpoint(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } catch (e) {
+      throw new Error("Can't reach n8n at " + settings.url + ". Is n8n running and the workflow published?");
+    }
+    const text = await res.text();
+    if (!res.ok) throw new Error(`n8n returned ${res.status}. ${text.slice(0, 200)}`);
+    let j; try { j = JSON.parse(text); } catch (e) { throw new Error('n8n sent something that is not JSON: ' + text.slice(0, 150)); }
+    if (Array.isArray(j)) j = j[0];
+    if (j && j.ok === false) throw new Error(j.error || 'The model failed. Try again.');
+    return j;
+  }
+
+  // Reads n8n's streaming response: a series of JSON objects {type:'begin'|'item'|'end'|'error', content}.
+  function takeObjects(buf) {
+    const out = []; let depth = 0, start = -1, inStr = false, escp = false, cut = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const c = buf[i];
+      if (inStr) { if (escp) escp = false; else if (c === '\\') escp = true; else if (c === '"') inStr = false; continue; }
+      if (c === '"') inStr = true;
+      else if (c === '{') { if (depth === 0) start = i; depth++; }
+      else if (c === '}') { depth--; if (depth === 0 && start >= 0) { try { out.push(JSON.parse(buf.slice(start, i + 1))); } catch (e) {} cut = i + 1; start = -1; } }
+    }
+    return [out, depth > 0 && start >= 0 ? buf.slice(start) : buf.slice(cut)];
+  }
+  async function streamChat(body, onText) {
+    let res;
+    try {
+      res = await fetch(endpoint('hagrid-chat'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } catch (e) {
+      throw new Error("Can't reach n8n at " + settings.url + ". Is n8n running and the workflow published?");
+    }
+    if (!res.ok) throw new Error(`n8n returned ${res.status}. ${(await res.text()).slice(0, 200)}`);
+    const reader = res.body.getReader(); const dec = new TextDecoder();
+    let buf = '', raw = '', full = '', streamed = false;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const s = dec.decode(value, { stream: true }); raw += s; buf += s;
+      let objs; [objs, buf] = takeObjects(buf);
+      for (const o of objs) {
+        if (o.type === 'item' && typeof o.content === 'string') { streamed = true; full += o.content; onText(full); }
+        else if (o.type === 'error') throw new Error(o.content || 'n8n reported an error.');
+      }
+    }
+    if (!streamed) { // workflow answered without streaming
+      try { let j = JSON.parse(raw); if (Array.isArray(j)) j = j[0]; full = j.output ?? j.text ?? j.response ?? ''; onText(full); } catch (e) {}
+    }
+    if (!String(full).trim()) throw new Error('Mr Hagrid said nothing. Check the n8n execution log. ' + raw.slice(0, 160));
+    return full;
+  }
+
+  // ---------------- setup screen ----------------
+  let difficulty = 'normal';
+  $('chips').innerHTML = TOPICS.map((t) => `<button type="button" class="chip">${esc(t)}</button>`).join('');
+  $('chips').addEventListener('click', (e) => { if (e.target.classList.contains('chip')) { $('topic').value = e.target.textContent; $('topic').focus(); } });
+  $('diff').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    difficulty = b.dataset.v;
+    $('diff').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  });
+  $('topic').addEventListener('keydown', (e) => { if (e.key === 'Enter') knock(); });
+  $('knockBtn').addEventListener('click', () => knock());
+
+  function renderSetup() {
+    const s = store.get('session', null);
+    const live = s && s.status === 'live' && s.transcript && s.transcript.length > 1;
+    $('resumeBox').classList.toggle('hidden', !live);
+    if (live) $('resumeTopic').textContent = s.topic;
+    const hist = store.get('history', []);
+    $('hist').innerHTML = hist.length ? hist.slice(0, 12).map((h, i) => {
+      const cls = h.score >= 7 ? 'b-good' : h.score >= 5 ? 'b-mid' : 'b-bad';
+      return `<button class="hist-item" data-i="${i}"><span class="badge ${cls}">${h.score}/10</span><span class="t"><b>${esc(h.topic)}</b><span>${esc(h.date)} · ${esc(h.difficulty)} · ${esc(h.outcome)}</span></span></button>`;
+    }).join('') : '<p class="empty">No meetings yet. Your scores will show up here.</p>';
+    show('setup');
+  }
+  $('hist').addEventListener('click', (e) => {
+    const b = e.target.closest('.hist-item'); if (!b) return;
+    const h = store.get('history', [])[+b.dataset.i]; if (h) renderScore(h.result, h.snapshot);
+  });
+  $('resumeBtn').addEventListener('click', () => { session = store.get('session', null); if (session) openChat(true); });
+  $('discardBtn').addEventListener('click', () => { store.del('session'); renderSetup(); });
+
+  // ---------------- meeting ----------------
+  async function knock(again) {
+    const topic = again ? again.topic : $('topic').value.trim();
+    if (!topic) { $('topic').focus(); return; }
+    session = {
+      id: uid(), topic,
+      details: again ? again.details : $('details').value.trim(),
+      difficulty: again ? again.difficulty : difficulty,
+      openingLine: '', brief: null, offerLevel: -1, transcript: [], status: 'live', started: new Date().toISOString(),
+    };
+    session.openingLine = pick(OPENERS[session.difficulty]);
+    prepareBrief();
+    openChat(false);
+    addScene("You knock on Mr Hagrid's door.");
+    const t = addTyping(); await sleep(1300); t.remove();
+    pushMsg('hagrid', session.openingLine);
+    $('input').focus();
+  }
+
+  function prepareBrief() {
+    briefPromise = postJSON('hagrid-start', payload({})).then((j) => { session.brief = j.brief; saveSession(); return j.brief; });
+    briefPromise.catch(() => {}); // handled when used
+  }
+
+  function openChat(resumed) {
+    $('topicBar').textContent = 'Topic: ' + session.topic + ' · ' + session.difficulty;
+    $('logInner').innerHTML = '';
+    show('chat');
+    if (resumed) {
+      addScene("You're back in Mr Hagrid's office.");
+      session.transcript.forEach((m) => addBubble(m.role, m.text, m.time));
+      if (!session.brief) prepareBrief(); else briefPromise = Promise.resolve(session.brief);
+      if (session.closed) addClosing(session.closed);
+    }
+    setBusy(false);
+    $('input').focus();
+  }
+
+  function addScene(text) { const d = document.createElement('div'); d.className = 'scene'; d.textContent = text; $('logInner').appendChild(d); scroll(); }
+  function addBubble(role, text, time) {
+    const d = document.createElement('div');
+    d.className = 'msg ' + (role === 'me' ? 'me' : 'them');
+    d.innerHTML = esc(text) + `<time>${esc(time || now())}</time>`;
+    $('logInner').appendChild(d); scroll(); return d;
+  }
+  function pushMsg(role, text) { const time = now(); session.transcript.push({ role, text, time }); saveSession(); return addBubble(role, text, time); }
+  function addTyping() {
+    const d = document.createElement('div'); d.className = 'typing';
+    d.innerHTML = '<span class="dots"><i></i><i></i><i></i></span><span class="lbl">Mr Hagrid is typing…</span>';
+    $('logInner').appendChild(d); scroll();
+    const started = Date.now();
+    const timer = setInterval(() => { const s = Math.round((Date.now() - started) / 1000); if (s >= 8) d.querySelector('.lbl').textContent = `Mr Hagrid is thinking… ${s}s`; }, 1000);
+    const remove = d.remove.bind(d); d.remove = () => { clearInterval(timer); remove(); };
+    return d;
+  }
+  function addError(msg, retry) {
+    const d = document.createElement('div'); d.className = 'err'; d.textContent = msg;
+    if (retry) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'Try again'; b.onclick = () => { d.remove(); retry(); }; d.appendChild(b); }
+    $('logInner').appendChild(d); scroll();
+  }
+  function addClosing(kind) {
+    const d = document.createElement('div'); d.className = 'closing';
+    d.innerHTML = `<span>${kind === 'deal' ? "🤝 Looks like you've got a deal." : 'The meeting is over.'}</span><button class="btn primary">See how you did</button>`;
+    d.querySelector('button').onclick = endMeeting;
+    $('logInner').appendChild(d); scroll();
+  }
+  const scroll = () => { const l = $('log'); l.scrollTop = l.scrollHeight; };
+  function setBusy(b) { busy = b; $('send').disabled = b; $('status').textContent = b ? 'typing…' : 'Director · in his office'; }
+
+  $('input').addEventListener('input', autoGrow);
+  function autoGrow() { const i = $('input'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, 160) + 'px'; }
+  $('input').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+  $('send').addEventListener('click', send);
+  $('endBtn').addEventListener('click', () => { if (!busy || confirm('Mr Hagrid is still replying. End the meeting anyway?')) endMeeting(); });
+
+  async function send() {
+    if (busy) return;
+    const text = $('input').value.trim();
+    if (!text) return;
+    if (/^end\s*nego$/i.test(text)) { $('input').value = ''; return endMeeting(); }
+    if (/^restart$/i.test(text)) { $('input').value = ''; store.del('session'); return renderSetup(); }
+    $('input').value = ''; autoGrow();
+    pushMsg('me', text);
+    await reply(text, false);
+  }
+
+  async function reply(text, isRetry) {
+    setBusy(true);
+    const typing = addTyping();
+    let bubble = null;
+    try {
+      await briefPromise.catch(async () => { prepareBrief(); return briefPromise; });
+      if (!isRetry) { // decide once per message whether Hagrid improves his offer
+        const prevMine = session.transcript.filter((m) => m.role === 'me').slice(0, -1).map((m) => m.text);
+        const d = decideOffer(session.brief, session.difficulty, { level: session.offerLevel, points: session.points }, prevMine, text, session.topic);
+        session.offerLevel = d.level; session.moved = d.moved; session.points = d.points; saveSession();
+      }
+      const raw = await streamChat(payload({ message: text }), (sofar) => {
+        const shown = tidy(sofar);
+        if (!shown) return;
+        if (!bubble) { typing.remove(); bubble = addBubble('hagrid', ''); }
+        bubble.firstChild && bubble.firstChild.nodeType === 3 ? (bubble.firstChild.nodeValue = shown) : bubble.insertBefore(document.createTextNode(shown), bubble.firstChild);
+        scroll();
+      });
+      typing.remove();
+      // replies are length-capped; if one was cut mid-sentence, end it at the last full sentence
+      let clean = tidy(raw) || '…';
+      if (!/[.!?…"')]$/.test(clean)) { const m = clean.match(/^[\s\S]*[.!?…](?=\s|$)/); if (m && m[0].length > 20) clean = m[0]; }
+      if (!bubble) bubble = addBubble('hagrid', clean); else bubble.firstChild.nodeValue = clean;
+      session.transcript.push({ role: 'hagrid', text: clean, time: now() });
+      const closed = tagOf(raw);
+      if (closed) { session.closed = closed; addClosing(closed); }
+      saveSession();
+    } catch (e) {
+      typing.remove(); if (bubble) bubble.remove();
+      addError(e.message, () => reply(text, true));
+    } finally {
+      setBusy(false); $('input').focus();
+    }
+  }
+
+  // ---------------- scorecard ----------------
+  async function endMeeting() {
+    if (!session) return;
+    const said = session.transcript.filter((m) => m.role === 'me').length;
+    if (!said) { if (confirm('You haven\'t said anything yet. Leave the meeting?')) { store.del('session'); renderSetup(); } return; }
+    $('scoreInner').innerHTML = `<div class="loading"><div class="spinner"></div><b>Reviewing your meeting…</b><p id="scoreTimer">This takes about a minute on your laptop.</p></div>`;
+    show('score');
+    const started = Date.now();
+    const timer = setInterval(() => { const el = $('scoreTimer'); if (el) el.textContent = `This takes about a minute on your laptop. ${Math.round((Date.now() - started) / 1000)}s`; }, 1000);
+    try {
+      if (!session.brief) await briefPromise;
+      const j = await postJSON('hagrid-score', payload({ outcome: session.closed || 'unfinished', transcript: session.transcript }));
+      const snapshot = { topic: session.topic, difficulty: session.difficulty, brief: session.brief, details: session.details };
+      const hist = store.get('history', []);
+      hist.unshift({ date: new Date().toLocaleDateString([], { day: 'numeric', month: 'short' }), topic: session.topic, difficulty: session.difficulty, outcome: j.score.outcome, score: j.score.score, result: j.score, snapshot });
+      store.set('history', hist.slice(0, 50));
+      session.status = 'done'; store.del('session');
+      renderScore(j.score, snapshot);
+    } catch (e) {
+      $('scoreInner').innerHTML = `<div class="loading"><p class="err" style="display:inline-block">${esc(e.message)}</p><div class="row" style="justify-content:center; margin-top: 14px;"><button class="btn" id="backChat">Back to meeting</button><button class="btn primary" id="retryScore">Try again</button></div></div>`;
+      $('backChat').onclick = () => show('chat');
+      $('retryScore').onclick = endMeeting;
+    } finally { clearInterval(timer); }
+  }
+
+  function renderScore(r, snap) {
+    const s = r.score || 0;
+    const color = s >= 7 ? 'var(--good)' : s >= 5 ? 'var(--warn)' : 'var(--bad)';
+    const C = 2 * Math.PI * 50;
+    const pillCls = r.outcome === 'deal' ? 'b-good' : r.outcome === 'no deal' ? 'b-bad' : 'b-mid';
+    const pts = (arr, empty) => (arr && arr.length ? arr.map((p) => `<div class="pt"><q>${esc(p.quote)}</q><div class="why">${esc(p.why)}</div></div>`).join('') : `<p class="empty">${empty}</p>`);
+    const rew = (r.better_lines || []).map((p) => `<div class="pt rewrite"><div class="old">${esc(p.you_said)}</div><div class="new">${esc(p.try_instead)}</div></div>`).join('') || '<p class="empty">Nothing to rewrite.</p>';
+    const b = (snap && snap.brief) || {};
+    const li = (a) => (Array.isArray(a) ? a : [a]).filter(Boolean).map(esc).join('<br>');
+    $('scoreInner').innerHTML = `
+      <div class="hero">
+        <div class="ring">
+          <svg width="116" height="116"><circle cx="58" cy="58" r="50" fill="none" stroke="var(--line)" stroke-width="10"/>
+          <circle cx="58" cy="58" r="50" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - s / 10)}"/></svg>
+          <div class="num"><div>${s}<small>out of 10</small></div></div>
+        </div>
+        <div class="txt">
+          <span class="pill ${pillCls}">${esc(r.outcome || 'unfinished')}</span>
+          <p class="headline">${esc(r.headline)}</p>
+          <p class="terms">${esc(snap ? snap.topic : '')}${r.final_terms ? ' → <b>' + esc(r.final_terms) + '</b>' : ''}</p>
+        </div>
+      </div>
+      <div class="sec"><h3><span class="ic b-good">✓</span>What worked</h3>${pts(r.worked, 'Nothing stood out. Next time bring numbers.')}</div>
+      <div class="sec"><h3><span class="ic b-bad">!</span>Where you lost leverage</h3>${pts(r.lost_leverage, 'No clear mistakes spotted.')}</div>
+      <div class="sec"><h3><span class="ic b-mid">↻</span>Better lines for next time</h3>${rew}</div>
+      <div class="sec"><h3><span class="ic b-mid">🂠</span>Mr Hagrid's hidden hand</h3>
+        <div class="hidden-hand"><dl>
+          <dt>His mood</dt><dd>${esc(b.mood || '-')}</dd>
+          <dt>Opening position</dt><dd>${esc(b.opening_position || '-')}</dd>
+          <dt>Real ceiling</dt><dd><b>${esc(b.ceiling || '-')}</b></dd>
+          <dt>Pressures on him</dt><dd>${li(b.pressures) || '-'}</dd>
+          <dt>Could trade</dt><dd>${li(b.trades) || '-'}</dd>
+          <dt>What moves him</dt><dd>${esc(b.what_moves_him || '-')}</dd>
+          <dt>How close you got</dt><dd>${esc(r.ceiling_gap || '-')}</dd>
+        </dl></div>
+      </div>
+      <div class="row" style="margin-top: 28px;">
+        <button class="btn primary" id="againBtn">Try again, same topic</button>
+        <button class="btn" id="newBtn">New topic</button>
+      </div>`;
+    show('score');
+    window.scrollTo(0, 0);
+    $('againBtn').onclick = () => knock(snap);
+    $('newBtn').onclick = renderSetup;
+  }
+
+  // ---------------- settings ----------------
+  function fillSettings(s) { $('sUrl').value = s.url; $('sPersona').value = s.persona; $('sMe').value = s.me; }
+  $('settingsBtn').addEventListener('click', () => { fillSettings(settings); $('settings').showModal(); });
+  $('sCancel').addEventListener('click', () => $('settings').close());
+  $('sReset').addEventListener('click', () => fillSettings(DEFAULTS));
+  $('sSave').addEventListener('click', () => {
+    settings = { url: $('sUrl').value.trim() || DEFAULTS.url, persona: $('sPersona').value.trim() || DEFAULTS.persona, me: $('sMe').value.trim() || DEFAULTS.me };
+    store.set('settings', settings); $('settings').close();
+  });
+
+  renderSetup();
+})();
+</script>
+</body>
+</html>

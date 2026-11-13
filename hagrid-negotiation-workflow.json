@@ -1,0 +1,384 @@
+{
+  "name": "Meeting with Mr Hagrid",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 1. Start meeting\nUI calls **POST /webhook/hagrid-start**. The model secretly decides Hagrid's opening, ceiling, pressures and trades (JSON). The UI keeps it hidden and sends it back every turn.",
+        "width": 980,
+        "height": 300,
+        "color": 5
+      },
+      "name": "Note -40--440",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -440
+      ],
+      "id": "note--40--440"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hagrid-start",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Start meeting",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -300
+      ],
+      "webhookId": "5b0e6c1e-3a52-4c0e-9d1a-7f3e2b1c4a01",
+      "id": "wh-hagrid-start"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- shared helpers + defaults (prepended to every Code node) ----\r\nconst MODEL = 'qwen3:4b-instruct'; // must match the Ollama Chat Model node\r\nconst OLLAMA_OPTIONS = { num_ctx: 4096 }; // keep identical to the Ollama Chat Model node, or the model reloads\r\nconst KEEP_ALIVE = '30m';\r\nconst DEFAULT_PERSONA = \"Mr Hagrid, Director of a packaging factory in Selangor. Late 50s, came up from operations and sales, not technical. Practical and cost-conscious: cares about production uptime, customer deadlines, cost, and what the other staff will think. Friendly in a gruff way, always busy, little patience for long explanations. Respects people who can show what their work did for the factory; gets annoyed by complaining or comparing with colleagues. Speaks plain, direct English and rarely uses slang.\";\r\nconst DEFAULT_ME = \"The company's IT person: a contract IT developer in a small IT team, handling the ERP, factory systems and anything with a cable. Basic salary RM3,500.\";\r\nconst DIFFICULTY = {\r\n  easy: 'Good mood and open-minded. A reasonable case gets you close to your ceiling fairly quickly.',\r\n  normal: 'Fair but careful. You push back on weak points, but you reward real contributions with a better offer.',\r\n  hard: 'Stressed and tough. Start low or say no, move slowly, attach conditions, use pressure. Only an excellent case reaches your ceiling.',\r\n};\r\nconst body = $input.first().json.body || {};\r\nconst clean = (s, max = 1500) => String(s ?? '').replace(/[{}]/g, '').trim().slice(0, max);\r\nconst list = (a) => (Array.isArray(a) ? a : [a]).map((x) => clean(x, 200)).filter(Boolean).join('; ');\r\nconst difficulty = Object.keys(DIFFICULTY).includes(body.difficulty) ? body.difficulty : 'normal';\r\nconst persona = clean(body.persona) || DEFAULT_PERSONA;\r\nconst me = clean(body.me) || DEFAULT_ME;\r\nconst topic = clean(body.topic, 300) || 'a salary raise';\r\nconst details = clean(body.details, 800);\r\n// ---- end shared ----\r\n\n// Asks the model (once per meeting) to secretly decide Hagrid's position. Returned to the UI, sent back every turn.\r\nconst GUIDE = {\r\n  easy: 'Ceiling at or very close to their full ask (for money: 80 to 100 percent of the gap between what they have and what they ask). Opening position fair, not insulting.',\r\n  normal: 'Ceiling clearly below their full ask (for money: about 40 to 70 percent of the gap between what they have and what they ask). Opening position low.',\r\n  hard: 'Ceiling well below their full ask (for money: about 20 to 40 percent of the gap), possibly with a condition. Opening position is a lowball or a flat no.',\r\n};\r\n// Money topics: read the RM amounts (e.g. \"RM3,500 to RM4,500\") and fix the allowed range in code,\r\n// because a 4B model does not do \"40-70% of the gap\" maths reliably.\r\nconst RANGE = { easy: [0.8, 1.0], normal: [0.4, 0.7], hard: [0.2, 0.4] };\r\nconst amounts = [...`${topic} ${details}`.replace(/,/g, '').matchAll(/rm\\s*(\\d+(?:\\.\\d+)?)\\s*(k\b)?/gi)]\r\n  .map((m) => Number(m[1]) * (m[2] ? 1000 : 1)).filter((n) => n > 0);\r\nconst r50 = (n) => Math.round(n / 50) * 50;\r\nconst fmt = (n) => 'RM' + n.toLocaleString('en-US');\r\nlet money = null;\r\nif (amounts.length >= 2 && Math.max(...amounts) > Math.min(...amounts)) {\r\n  const cur = Math.min(...amounts), ask = Math.max(...amounts), gap = ask - cur, [a, b] = RANGE[difficulty];\r\n  money = { cur, ask, lo: r50(cur + gap * a), hi: r50(cur + gap * b), openMin: difficulty === 'hard' ? cur : r50(cur + gap * 0.1) };\r\n}\r\nconst moneyRule = money\r\n  ? `\r\nMONEY RULE: they have ${fmt(money.cur)} and will ask for ${fmt(money.ask)}. opening_position must be between ${fmt(money.openMin)} and ${fmt(r50(money.cur + (money.lo - money.cur) / 2))}. ceiling must be between ${fmt(money.lo)} and ${fmt(money.hi)}. Each step must be between the opening and the ceiling, going up.\r\n`\r\n  : '';\r\n\r\nconst schema = {\r\n  type: 'object',\r\n  properties: {\r\n    mood: { type: 'string' },\r\n    opening_position: { type: 'string' },\r\n    ceiling: { type: 'string' },\r\n    steps: { type: 'array', items: { type: 'string' } },\r\n    pressures: { type: 'array', items: { type: 'string' } },\r\n    trades: { type: 'array', items: { type: 'string' } },\r\n    what_moves_him: { type: 'string' },\r\n  },\r\n  required: ['mood', 'opening_position', 'ceiling', 'steps', 'pressures', 'trades', 'what_moves_him'],\r\n};\r\nconst system = 'You secretly prepare the hidden negotiating position of a company Director before a staff member comes to ask him for something. Write every field from the point of view of the DIRECTOR: \"I\" and \"me\" always mean the Director, \"you\" always means the staff member. Be concrete and realistic for a Malaysian company. Use real numbers whenever the topic involves money, time or quantities. Reply with JSON only.';\r\nconst user = `THE PERSON: ${persona}\r\nTHE OTHER PERSON: ${me}\r\nWHAT THEY WILL ASK FOR: ${topic}\r\n${details ? `BACKGROUND: ${details}\\n` : ''}WHEN THEY KNOCKED HE SAID: \"${clean(body.openingLine, 200)}\"\r\nDIFFICULTY: ${difficulty}. ${GUIDE[difficulty]}\r\n${moneyRule}\r\nFill in:\r\n- mood: the Director's mood and what is happening at the factory today (max 15 words)\r\n- opening_position: the Director's first offer TO the staff member, with a concrete figure or terms, never a request for evidence (max 15 words)\r\n- steps: exactly 2 better offers the Director makes TO the staff member, each better for them than the one before (max 15 words each)\r\n- ceiling: the best offer the Director could ever make TO the staff member, better than every step (max 15 words)\r\nEach offer is a complete set of terms he would say out loud, about THIS topic only. Offers are things he gives, not tasks or targets they must hit first.\r\n\r\nExample for a different topic (server budget of RM25,000, normal): opening_position \"Use the old server until year end\", steps [\"RM12,000 for a refurbished server\", \"RM18,000 new, if you show me the downtime cost\"], ceiling \"RM22,000 new, paid next quarter\".\r\n- pressures: exactly 3 real constraints on the Director or the company (max 12 words each)\r\n- trades: 2 or 3 things the Director could give the staff member instead of what they ask, or ask from them in return, e.g. \"I can give you 2 extra leave days\" or \"you take over the CCTV system too\" (max 12 words each)\r\n- what_moves_him: the arguments that would make the Director move, not only numbers, e.g. reliability, dependency on their work, retention risk (max 20 words)`;\r\n\r\nreturn [{\r\n  json: {\r\n    money,\r\n    ollamaBody: {\r\n      model: MODEL,\r\n      stream: false,\r\n      keep_alive: KEEP_ALIVE,\r\n      format: schema,\r\n      options: { ...OLLAMA_OPTIONS, temperature: 0.9, num_predict: 320 },\r\n      messages: [\r\n        { role: 'system', content: system },\r\n        { role: 'user', content: user },\r\n      ],\r\n    },\r\n  },\r\n}];\r\n"
+      },
+      "name": "Build hidden position request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -300
+      ],
+      "id": "code-build-hidden-position-request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ollamaBody) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "name": "Ollama: decide position",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        -300
+      ],
+      "id": "http-ollama-decide-position"
+    },
+    {
+      "parameters": {
+        "jsCode": "const KIND = 'start';\n// Turns Ollama's JSON reply into a clean object for the UI. KIND is set per node by the build script.\r\nconst raw = String($input.first().json?.message?.content ?? '');\r\nlet data = null;\r\ntry { data = JSON.parse(raw); } catch (e) {\r\n  const m = raw.match(/\\{[\\s\\S]*\\}/);\r\n  if (m) { try { data = JSON.parse(m[0]); } catch (e2) { data = null; } }\r\n}\r\nif (!data || typeof data !== 'object') {\r\n  return [{ json: { ok: false, error: 'The model did not return valid JSON. Try again.', raw: raw.slice(0, 500) } }];\r\n}\r\nif (KIND === 'start') {\r\n  // Safety net for money topics: force opening < steps < ceiling inside the range computed upstream.\r\n  let money = null;\r\n  try { money = $('Build hidden position request').first().json.money; } catch (e) { money = null; }\r\n  if (money) {\r\n    const r50 = (n) => Math.round(n / 50) * 50;\r\n    const fmt = (n) => 'RM' + n.toLocaleString('en-US');\r\n    const num = (s) => { const m = String(s || '').replace(/,/g, '').match(/\\d{3,}(\\.\\d+)?/); return m ? Number(m[0]) : null; };\r\n    const setNum = (s, n) => (num(s) == null ? `${fmt(n)}. ${s || ''}`.trim() : String(s).replace(/RM\\s*[\\d,]{3,}(\\.\\d+)?|\b[\\d,]{4,}(\\.\\d+)?\b/i, fmt(n)));\r\n    let c = num(data.ceiling);\r\n    if (c == null || c < money.lo || c > money.hi) { c = r50((money.lo + money.hi) / 2); data.ceiling = setNum(data.ceiling, c); }\r\n    let o = num(data.opening_position);\r\n    const oMax = r50(money.cur + (c - money.cur) * 0.3);\r\n    const oMin = money.openMin ?? money.cur;\r\n    if (o == null || o > oMax || o < oMin) { o = oMin; data.opening_position = setNum(data.opening_position, o); }\r\n    const steps = Array.isArray(data.steps) ? data.steps.slice(0, 3) : [];\r\n    while (steps.length < 2) steps.push('');\r\n    let prev = o;\r\n    data.steps = steps.map((s, i) => {\r\n      let v = num(s);\r\n      const want = r50(o + ((c - o) * (i + 1)) / (steps.length + 1));\r\n      if (v == null || v <= prev || v >= c) { v = want; s = setNum(s, v); }\r\n      prev = v;\r\n      return s;\r\n    });\r\n    // Plain terms read naturally; the model's conditions (\"if you send reports by Friday\") made him sound like a contract.\r\n    const plain = (s) => `${fmt(num(s))} basic salary`;\r\n    data.opening_position = plain(data.opening_position);\r\n    data.steps = data.steps.map(plain);\r\n    data.ceiling = plain(data.ceiling);\r\n  }\r\n  return [{ json: { ok: true, brief: data } }];\r\n}\r\ntry { data.outcome = $('Build scorecard request').first().json.outcome; } catch (e) { data.outcome = data.outcome || 'unfinished'; }\r\ndata.score = Math.max(1, Math.min(10, Math.round(Number(data.score) || 1)));\r\n// Small models sometimes quote Hagrid as if ME said it: keep only quotes that match ME's real lines.\r\nlet mine = [];\r\ntry { mine = ($('End meeting').first().json.body.transcript || []).filter((t) => t.role === 'me').map((t) => String(t.text)); } catch (e) { mine = null; }\r\nconst words = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9\\s]/g, ' ').split(/\\s+/).filter(Boolean);\r\nconst isMine = (q) => {\r\n  if (!mine) return true;\r\n  const qw = words(q);\r\n  if (!qw.length) return false;\r\n  return mine.some((line) => { const lw = new Set(words(line)); return qw.filter((w) => lw.has(w)).length / qw.length >= 0.7; });\r\n};\r\nconst unlabel = (s) => String(s || '').replace(/^\\s*(ME|HAGRID)\\s*:\\s*/i, '').replace(/[\\u3000-\\u9fff\\uac00-\\ud7af]/g, '');\r\nfor (const k of ['worked', 'lost_leverage', 'better_lines']) {\r\n  const key = k === 'better_lines' ? 'you_said' : 'quote';\r\n  for (const x of Array.isArray(data[k]) ? data[k] : []) for (const f of Object.keys(x || {})) x[f] = unlabel(x[f]);\r\n  data[k] = (Array.isArray(data[k]) ? data[k] : []).filter((x) => x && isMine(x[key])).slice(0, 3);\r\n}\r\nreturn [{ json: { ok: true, score: data } }];\r\n"
+      },
+      "name": "Parse position",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -300
+      ],
+      "id": "code-parse-position"
+    },
+    {
+      "parameters": {
+        "content": "## 2. Chat with Mr Hagrid (streamed)\nUI calls **POST /webhook/hagrid-chat**. Replies stream word by word. Memory is per meeting (sessionId).\n**Model settings live in the Ollama node** (keep num_ctx = 4096 everywhere, or the model reloads = slow).",
+        "width": 980,
+        "height": 520,
+        "color": 4
+      },
+      "name": "Note -40--100",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -100
+      ],
+      "id": "note--40--100"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hagrid-chat",
+        "responseMode": "streaming",
+        "options": {}
+      },
+      "name": "Chat message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        60
+      ],
+      "webhookId": "8a7d2b44-1f0e-4f7b-b3c2-6d9e0a5f1b02",
+      "id": "wh-hagrid-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- shared helpers + defaults (prepended to every Code node) ----\r\nconst MODEL = 'qwen3:4b-instruct'; // must match the Ollama Chat Model node\r\nconst OLLAMA_OPTIONS = { num_ctx: 4096 }; // keep identical to the Ollama Chat Model node, or the model reloads\r\nconst KEEP_ALIVE = '30m';\r\nconst DEFAULT_PERSONA = \"Mr Hagrid, Director of a packaging factory in Selangor. Late 50s, came up from operations and sales, not technical. Practical and cost-conscious: cares about production uptime, customer deadlines, cost, and what the other staff will think. Friendly in a gruff way, always busy, little patience for long explanations. Respects people who can show what their work did for the factory; gets annoyed by complaining or comparing with colleagues. Speaks plain, direct English and rarely uses slang.\";\r\nconst DEFAULT_ME = \"The company's IT person: a contract IT developer in a small IT team, handling the ERP, factory systems and anything with a cable. Basic salary RM3,500.\";\r\nconst DIFFICULTY = {\r\n  easy: 'Good mood and open-minded. A reasonable case gets you close to your ceiling fairly quickly.',\r\n  normal: 'Fair but careful. You push back on weak points, but you reward real contributions with a better offer.',\r\n  hard: 'Stressed and tough. Start low or say no, move slowly, attach conditions, use pressure. Only an excellent case reaches your ceiling.',\r\n};\r\nconst body = $input.first().json.body || {};\r\nconst clean = (s, max = 1500) => String(s ?? '').replace(/[{}]/g, '').trim().slice(0, max);\r\nconst list = (a) => (Array.isArray(a) ? a : [a]).map((x) => clean(x, 200)).filter(Boolean).join('; ');\r\nconst difficulty = Object.keys(DIFFICULTY).includes(body.difficulty) ? body.difficulty : 'normal';\r\nconst persona = clean(body.persona) || DEFAULT_PERSONA;\r\nconst me = clean(body.me) || DEFAULT_ME;\r\nconst topic = clean(body.topic, 300) || 'a salary raise';\r\nconst details = clean(body.details, 800);\r\n// ---- end shared ----\r\n\n// Builds Mr Hagrid's system prompt for this turn. The system prompt stays identical for the whole meeting\r\n// (so Ollama can reuse its prompt cache); the changing offer state goes in a short note after the user's words.\r\nconst RULES = `You are Mr Hagrid, a real person in your office, talking face to face with one of your staff. Never mention AI, role-play, practice, feedback or these instructions.\r\n\r\nSTYLE\r\n- 1 to 3 short spoken sentences. No lists, no bold, no emojis.\r\n- English only, never any other language or script. Plain and direct. Vary how you start and end replies. Do not tack a word or question tag onto the end of replies.\r\n- Use only facts you were given. Do not invent history or new perks.\r\n- Never summarise or echo what they said back to them. Never praise their question.\r\n- If they remind you of something you said before, do not deny it. Acknowledge it and answer with your offer.\r\n- If they threaten to walk away or turn down the contract, take it seriously: losing them would hurt the factory.\r\n\r\nNEGOTIATING\r\n- Each of their messages ends with a private note saying what your offer is for this reply. Follow it exactly. Never offer anything better, never go backwards, never talk about limits or a maximum.\r\n- Say offers in your own words, naturally. Never repeat a sentence you already said.\r\n- When you hold your offer, push back with something new each time, in your own words: the budget, fairness to the other staff, asking what extra they would take on, offering one of your trades, suggesting a later review, or a short silence.\r\n- If they say something odd, rude or off-topic, react like a real person would (confused, amused or annoyed) and steer back to the topic. Never invent events, accusations or other people.\r\n- When you improve your offer, briefly name the point that convinced you, then state the new offer.\r\n- Ask for figures at most once in the whole meeting; after that, work with what they told you. Rough estimates are fine; do the maths yourself.\r\n- If they accept an offer, confirm the exact terms in one sentence and wrap up the meeting.\r\n\r\nEXAMPLE OF YOUR STYLE (different topic, never reuse its content)\r\nStaff: I need a new laptop, mine keeps crashing.\r\nHagrid: Crashing how often? IT budget for this year is finished.\r\nStaff: Twice a day. I lose about an hour each time and the ERP sync fails.\r\nHagrid: Hmm. I can give you the spare one from the sales office for now.\r\nStaff: That one only has 8GB, it can't run the dev tools.\r\nHagrid: Fine. Get me a quotation under RM3,000, and it must last three years.`;\r\n\r\nconst brief = body.brief && typeof body.brief === 'object' ? body.brief : {};\r\nconst steps = (Array.isArray(brief.steps) ? brief.steps : []).map((s) => clean(s, 200)).filter(Boolean);\r\n// Offer ladder: opening -> steps -> ceiling. The UI tracks how far Hagrid has climbed (offerLevel, -1 = no offer yet).\r\nconst ladder = [clean(brief.opening_position, 300), ...steps, clean(brief.ceiling, 300)].filter(Boolean);\r\nif (!ladder.length) ladder.push('No change for now.');\r\nconst level = Math.max(-1, Math.min(ladder.length - 1, Math.floor(Number(body.offerLevel ?? -1))));\r\n\r\nconst systemPrompt = [\r\n  RULES,\r\n  '',\r\n  'WHO YOU ARE',\r\n  persona,\r\n  '',\r\n  'THE PERSON IN FRONT OF YOU',\r\n  me,\r\n  '',\r\n  'TODAY',\r\n  `Your mood and situation: ${clean(brief.mood, 300) || 'a normal busy day'}`,\r\n  `When they knocked, you already said: \"${clean(body.openingLine, 200) || 'Ya, come in. What is it?'}\". Do not say it again.`,\r\n  `They came to talk about this (do not bring it up before they do): ${topic}`,\r\n  details ? `What you already know about them: ${details}` : null,\r\n  `Your attitude today: ${DIFFICULTY[difficulty]}`,\r\n  `Pressures you can mention: ${list(brief.pressures)}`,\r\n  `Trades you can offer or ask for: ${list(brief.trades)}`,\r\n  `What moves you most: ${clean(brief.what_moves_him, 300)}`,\r\n].filter((l) => l !== null).join('\\n');\r\n\r\n// The UI decides (from the evidence in their messages) whether Hagrid moves this turn: moved=true means improve now.\r\nconst moved = body.moved === true || body.moved === 'true';\r\nconst final = level >= ladder.length - 1;\r\nlet offerNote;\r\nif (level < 0) offerNote = 'They have not made their ask yet. Find out what they want. Make no offer.';\r\nelse if (level === 0 && moved) offerNote = `Give your first offer now, in your own words: ${ladder[0]}.`;\r\nelse if (moved) offerNote = `Their point convinced you. Improve your offer now, in your own words, to: ${ladder[level]}.${final ? ' Make clear this is the best you can do.' : ''}`;\r\nelse offerNote = `Your offer stays at: ${ladder[level]}. Do not improve it in this reply, and do not restate it every time.${final ? ' It is your best offer.' : ''} Push back with something new.`;\r\n\r\nconst sessionId = String(body.sessionId ?? '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || 'default';\r\nconst said = String(body.message ?? '').trim().slice(0, 2000) || '...';\r\n// Small models loop on one pushback line; show Hagrid his recent lines and ask for something different.\r\nconst recent = (Array.isArray(body.recent) ? body.recent : []).slice(-4).map((t) => clean(t, 160)).filter(Boolean);\r\nconst avoid = recent.length ? ` You already said: ${recent.map((t) => `\"${t}\"`).join(' / ')}. Do not repeat any of that; say something different.` : '';\r\nconst message = `${said}\\n\\n(Private note to Hagrid: reply in at most 2 short sentences. ${offerNote}${avoid} Do not ask for numbers again if you already did.)`;\r\n\r\nreturn [{ json: { sessionId, message, systemPrompt } }];\r\n"
+      },
+      "name": "Build Hagrid prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        60
+      ],
+      "id": "code-build-hagrid-prompt"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message }}",
+        "options": {
+          "systemMessage": "={{ $json.systemPrompt }}",
+          "enableStreaming": true
+        }
+      },
+      "name": "Mr Hagrid",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        500,
+        60
+      ],
+      "id": "agent-hagrid"
+    },
+    {
+      "parameters": {
+        "model": "qwen3:4b-instruct",
+        "options": {
+          "temperature": 0.8,
+          "numCtx": 4096,
+          "keepAlive": "30m",
+          "numPredict": 110,
+          "repeatPenalty": 1.1
+        }
+      },
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        420,
+        280
+      ],
+      "id": "ollama-chat",
+      "credentials": {
+        "ollamaApi": {
+          "id": "Tcfq99K0zp5JeGYT",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}",
+        "contextWindowLength": 30
+      },
+      "name": "Meeting Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        620,
+        280
+      ],
+      "id": "memory-hagrid"
+    },
+    {
+      "parameters": {
+        "content": "## 3. Scorecard\nUI calls **POST /webhook/hagrid-score** with the full transcript. A strict coach prompt returns a structured scorecard (JSON).",
+        "width": 980,
+        "height": 300,
+        "color": 6
+      },
+      "name": "Note -40-460",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        460
+      ],
+      "id": "note--40-460"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hagrid-score",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "End meeting",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        600
+      ],
+      "webhookId": "c3f1a9d0-6e2b-4a8c-8f5e-2a4b6c8d0e03",
+      "id": "wh-hagrid-score"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- shared helpers + defaults (prepended to every Code node) ----\r\nconst MODEL = 'qwen3:4b-instruct'; // must match the Ollama Chat Model node\r\nconst OLLAMA_OPTIONS = { num_ctx: 4096 }; // keep identical to the Ollama Chat Model node, or the model reloads\r\nconst KEEP_ALIVE = '30m';\r\nconst DEFAULT_PERSONA = \"Mr Hagrid, Director of a packaging factory in Selangor. Late 50s, came up from operations and sales, not technical. Practical and cost-conscious: cares about production uptime, customer deadlines, cost, and what the other staff will think. Friendly in a gruff way, always busy, little patience for long explanations. Respects people who can show what their work did for the factory; gets annoyed by complaining or comparing with colleagues. Speaks plain, direct English and rarely uses slang.\";\r\nconst DEFAULT_ME = \"The company's IT person: a contract IT developer in a small IT team, handling the ERP, factory systems and anything with a cable. Basic salary RM3,500.\";\r\nconst DIFFICULTY = {\r\n  easy: 'Good mood and open-minded. A reasonable case gets you close to your ceiling fairly quickly.',\r\n  normal: 'Fair but careful. You push back on weak points, but you reward real contributions with a better offer.',\r\n  hard: 'Stressed and tough. Start low or say no, move slowly, attach conditions, use pressure. Only an excellent case reaches your ceiling.',\r\n};\r\nconst body = $input.first().json.body || {};\r\nconst clean = (s, max = 1500) => String(s ?? '').replace(/[{}]/g, '').trim().slice(0, max);\r\nconst list = (a) => (Array.isArray(a) ? a : [a]).map((x) => clean(x, 200)).filter(Boolean).join('; ');\r\nconst difficulty = Object.keys(DIFFICULTY).includes(body.difficulty) ? body.difficulty : 'normal';\r\nconst persona = clean(body.persona) || DEFAULT_PERSONA;\r\nconst me = clean(body.me) || DEFAULT_ME;\r\nconst topic = clean(body.topic, 300) || 'a salary raise';\r\nconst details = clean(body.details, 800);\r\n// ---- end shared ----\r\n\n// Builds the coach request: reviews the transcript the UI sends and returns a structured scorecard.\r\nconst brief = body.brief && typeof body.brief === 'object' ? body.brief : {};\r\nconst outcome = ['deal', 'no deal', 'unfinished'].includes(body.outcome) ? body.outcome : 'unfinished';\r\nconst turns = Array.isArray(body.transcript) ? body.transcript : [];\r\nlet transcript = turns\r\n  .map((t) => `${t.role === 'me' ? 'ME' : 'HAGRID'}: ${clean(t.text, 600)}`)\r\n  .join('\\n');\r\nif (transcript.length > 9000) transcript = '...\\n' + transcript.slice(-9000);\r\nconst myLines = turns.filter((t) => t.role === 'me').length;\r\n\r\nconst item = (props) => ({ type: 'object', properties: props, required: Object.keys(props) });\r\nconst schema = {\r\n  type: 'object',\r\n  properties: {\r\n    final_terms: { type: 'string' },\r\n    score: { type: 'integer', minimum: 1, maximum: 10 },\r\n    headline: { type: 'string' },\r\n    worked: { type: 'array', items: item({ quote: { type: 'string' }, why: { type: 'string' } }) },\r\n    lost_leverage: { type: 'array', items: item({ quote: { type: 'string' }, why: { type: 'string' } }) },\r\n    better_lines: { type: 'array', items: item({ you_said: { type: 'string' }, try_instead: { type: 'string' } }) },\r\n    ceiling_gap: { type: 'string' },\r\n  },\r\n  required: ['final_terms', 'score', 'headline', 'worked', 'lost_leverage', 'better_lines', 'ceiling_gap'],\r\n};\r\n\r\nconst system = `You are a sharp, honest negotiation coach. You review only how ME negotiated against Mr Hagrid, ME's director.\r\n\r\nWHAT GOOD LOOKS LIKE\r\nStrong: anchoring at or above the target, quantified value to the company (money saved, downtime avoided, hours), concrete impact even without exact figures (manual work eliminated, overtime cut, systems the factory depends on), market data, a calm pause after a lowball, asking about his constraints, trading instead of conceding, pinning down a date, getting agreements confirmed.\r\nWeak: personal needs as the reason (bills, cost of living, expenses), giving a range, revealing a minimum, accepting the first offer, apologising, comparing with colleagues, threats too early, vague promises, conceding without getting something back.\r\n\r\nFIELDS\r\n- final_terms: what was agreed, or what was last on the table. Use RM for money.\r\n- worked: ME's genuinely good moves. Quote ME's exact words. If ME made any concrete point (what they built, work removed, overtime cut, praise from a manager), include at least one item.\r\n- lost_leverage: ONLY ME's weak moves or missed chances. Quote ME's exact words, never Hagrid's.\r\n- better_lines: rewrite ME's weakest lines into stronger ones that ME would say to Hagrid, using the strong moves above. Never mention Hagrid's hidden position. Never suggest personal needs as an argument.\r\n- English only.\r\n- ceiling_gap: how far the result is from Hagrid's hidden ceiling, in one short sentence.\r\n- headline: one blunt sentence verdict.\r\n- At most 3 items per list. Quotes max 20 words (shorten long lines, keep ME's own words). Each \"why\" and \"try_instead\" max 25 words.\r\n\r\nSCORE 1-10: 9-10 reached or nearly reached his ceiling with strong moves. 7-8 good result, small leaks. 5-6 okay but left value on the table. 3-4 weak, gave in early. 1-2 no preparation or caved. If the meeting is unfinished, score the moves made so far.\r\nReply with JSON only.`;\r\n\r\nconst user = `TOPIC: ${topic}\r\nDIFFICULTY: ${difficulty}\r\nOUTCOME: ${outcome}\r\nME: ${me}\r\nHAGRID'S HIDDEN POSITION: opening: ${clean(brief.opening_position, 300)} | ceiling: ${clean(brief.ceiling, 300)} | pressures: ${list(brief.pressures)} | could trade: ${list(brief.trades)} | moved by: ${clean(brief.what_moves_him, 300)}\r\nME spoke ${myLines} times.\r\n\r\nTRANSCRIPT:\r\n${transcript || '(nothing was said)'}`;\r\n\r\nreturn [{\r\n  json: {\r\n    outcome,\r\n    ollamaBody: {\r\n      model: MODEL,\r\n      stream: false,\r\n      keep_alive: KEEP_ALIVE,\r\n      format: schema,\r\n      options: { ...OLLAMA_OPTIONS, temperature: 0.2, num_predict: 900 },\r\n      messages: [\r\n        { role: 'system', content: system },\r\n        { role: 'user', content: user },\r\n      ],\r\n    },\r\n  },\r\n}];\r\n"
+      },
+      "name": "Build scorecard request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        600
+      ],
+      "id": "code-build-scorecard-request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ollamaBody) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "name": "Ollama: score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        600
+      ],
+      "id": "http-ollama-score"
+    },
+    {
+      "parameters": {
+        "jsCode": "const KIND = 'score';\n// Turns Ollama's JSON reply into a clean object for the UI. KIND is set per node by the build script.\r\nconst raw = String($input.first().json?.message?.content ?? '');\r\nlet data = null;\r\ntry { data = JSON.parse(raw); } catch (e) {\r\n  const m = raw.match(/\\{[\\s\\S]*\\}/);\r\n  if (m) { try { data = JSON.parse(m[0]); } catch (e2) { data = null; } }\r\n}\r\nif (!data || typeof data !== 'object') {\r\n  return [{ json: { ok: false, error: 'The model did not return valid JSON. Try again.', raw: raw.slice(0, 500) } }];\r\n}\r\nif (KIND === 'start') {\r\n  // Safety net for money topics: force opening < steps < ceiling inside the range computed upstream.\r\n  let money = null;\r\n  try { money = $('Build hidden position request').first().json.money; } catch (e) { money = null; }\r\n  if (money) {\r\n    const r50 = (n) => Math.round(n / 50) * 50;\r\n    const fmt = (n) => 'RM' + n.toLocaleString('en-US');\r\n    const num = (s) => { const m = String(s || '').replace(/,/g, '').match(/\\d{3,}(\\.\\d+)?/); return m ? Number(m[0]) : null; };\r\n    const setNum = (s, n) => (num(s) == null ? `${fmt(n)}. ${s || ''}`.trim() : String(s).replace(/RM\\s*[\\d,]{3,}(\\.\\d+)?|\b[\\d,]{4,}(\\.\\d+)?\b/i, fmt(n)));\r\n    let c = num(data.ceiling);\r\n    if (c == null || c < money.lo || c > money.hi) { c = r50((money.lo + money.hi) / 2); data.ceiling = setNum(data.ceiling, c); }\r\n    let o = num(data.opening_position);\r\n    const oMax = r50(money.cur + (c - money.cur) * 0.3);\r\n    const oMin = money.openMin ?? money.cur;\r\n    if (o == null || o > oMax || o < oMin) { o = oMin; data.opening_position = setNum(data.opening_position, o); }\r\n    const steps = Array.isArray(data.steps) ? data.steps.slice(0, 3) : [];\r\n    while (steps.length < 2) steps.push('');\r\n    let prev = o;\r\n    data.steps = steps.map((s, i) => {\r\n      let v = num(s);\r\n      const want = r50(o + ((c - o) * (i + 1)) / (steps.length + 1));\r\n      if (v == null || v <= prev || v >= c) { v = want; s = setNum(s, v); }\r\n      prev = v;\r\n      return s;\r\n    });\r\n    // Plain terms read naturally; the model's conditions (\"if you send reports by Friday\") made him sound like a contract.\r\n    const plain = (s) => `${fmt(num(s))} basic salary`;\r\n    data.opening_position = plain(data.opening_position);\r\n    data.steps = data.steps.map(plain);\r\n    data.ceiling = plain(data.ceiling);\r\n  }\r\n  return [{ json: { ok: true, brief: data } }];\r\n}\r\ntry { data.outcome = $('Build scorecard request').first().json.outcome; } catch (e) { data.outcome = data.outcome || 'unfinished'; }\r\ndata.score = Math.max(1, Math.min(10, Math.round(Number(data.score) || 1)));\r\n// Small models sometimes quote Hagrid as if ME said it: keep only quotes that match ME's real lines.\r\nlet mine = [];\r\ntry { mine = ($('End meeting').first().json.body.transcript || []).filter((t) => t.role === 'me').map((t) => String(t.text)); } catch (e) { mine = null; }\r\nconst words = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9\\s]/g, ' ').split(/\\s+/).filter(Boolean);\r\nconst isMine = (q) => {\r\n  if (!mine) return true;\r\n  const qw = words(q);\r\n  if (!qw.length) return false;\r\n  return mine.some((line) => { const lw = new Set(words(line)); return qw.filter((w) => lw.has(w)).length / qw.length >= 0.7; });\r\n};\r\nconst unlabel = (s) => String(s || '').replace(/^\\s*(ME|HAGRID)\\s*:\\s*/i, '').replace(/[\\u3000-\\u9fff\\uac00-\\ud7af]/g, '');\r\nfor (const k of ['worked', 'lost_leverage', 'better_lines']) {\r\n  const key = k === 'better_lines' ? 'you_said' : 'quote';\r\n  for (const x of Array.isArray(data[k]) ? data[k] : []) for (const f of Object.keys(x || {})) x[f] = unlabel(x[f]);\r\n  data[k] = (Array.isArray(data[k]) ? data[k] : []).filter((x) => x && isMine(x[key])).slice(0, 3);\r\n}\r\nreturn [{ json: { ok: true, score: data } }];\r\n"
+      },
+      "name": "Parse scorecard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        600
+      ],
+      "id": "code-parse-scorecard"
+    }
+  ],
+  "connections": {
+    "Start meeting": {
+      "main": [
+        [
+          {
+            "node": "Build hidden position request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build hidden position request": {
+      "main": [
+        [
+          {
+            "node": "Ollama: decide position",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama: decide position": {
+      "main": [
+        [
+          {
+            "node": "Parse position",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat message": {
+      "main": [
+        [
+          {
+            "node": "Build Hagrid prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Hagrid prompt": {
+      "main": [
+        [
+          {
+            "node": "Mr Hagrid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Mr Hagrid",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meeting Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Mr Hagrid",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "End meeting": {
+      "main": [
+        [
+          {
+            "node": "Build scorecard request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build scorecard request": {
+      "main": [
+        [
+          {
+            "node": "Ollama: score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama: score": {
+      "main": [
+        [
+          {
+            "node": "Parse scorecard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
