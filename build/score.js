@@ -28,6 +28,7 @@ const system = `You are a sharp, honest negotiation coach. You review only how M
 WHAT GOOD LOOKS LIKE
 Strong: anchoring at or above the target, quantified value to the company (money saved, downtime avoided, hours), concrete impact even without exact figures (manual work eliminated, overtime cut, systems the factory depends on), market data, a calm pause after a lowball, asking about his constraints, trading instead of conceding, pinning down a date, getting agreements confirmed.
 Weak: personal needs as the reason (bills, cost of living, expenses), giving a range, revealing a minimum, accepting the first offer, apologising, comparing with colleagues, threats too early, vague promises, conceding without getting something back.
+Unacceptable: blackmail, threatening to expose or report him, digging into his private life, insults. Any of these means score 1, whatever the outcome, and the headline must say why.
 
 FIELDS
 - final_terms: what was agreed, or what was last on the table. Use RM for money.
@@ -46,7 +47,7 @@ const user = `TOPIC: ${topic}
 DIFFICULTY: ${difficulty}
 OUTCOME: ${outcome}
 ME: ${me}
-HAGRID'S HIDDEN POSITION: opening: ${clean(brief.opening_position, 300)} | ceiling: ${clean(brief.ceiling, 300)} | pressures: ${list(brief.pressures)} | could trade: ${list(brief.trades)} | moved by: ${clean(brief.what_moves_him, 300)}
+HAGRID'S HIDDEN POSITION: opening: ${clean(brief.opening_position, 300)} | ceiling: ${clean(brief.ceiling, 300)} | could trade: ${list(brief.trades)} | moved by: ${clean(brief.what_moves_him, 300)}
 ME spoke ${myLines} times.
 
 TRANSCRIPT:

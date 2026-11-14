@@ -3,261 +3,471 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Meeting with Mr Hagrid</title>
+<title>Mr Hagrid · Negotiation Simulator</title>
+<meta name="description" content="Rehearse a hard conversation with your director before the real one. Runs fully offline on n8n + Ollama.">
 <style>
   :root {
-    --bg: #f3f1ec; --surface: #ffffff; --surface-2: #f8f7f4; --ink: #1d2125; --muted: #6b7177;
-    --line: #e3e0d9; --accent: #2f5d50; --accent-ink: #ffffff; --accent-soft: #e4eeea;
-    --me: #2f5d50; --me-ink: #ffffff; --them: #ffffff; --them-ink: #1d2125;
-    --good: #2e7d4f; --good-soft: #e5f2ea; --bad: #b4442c; --bad-soft: #f8e8e3; --warn: #9a6512; --warn-soft: #f6edda;
-    --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
+    --bg: #f4f2ee; --bg-2: #ebe7e0; --surface: #ffffff; --surface-2: #f8f6f2; --surface-3: #f1eee8;
+    --ink: #1b2230; --ink-2: #3b4352; --muted: #6c7380; --line: #e2ddd4; --line-2: #d4cec3;
+    --brand: #1f3a5f; --brand-2: #2c5282; --brand-ink: #ffffff; --brand-soft: #e6edf6;
+    --accent: #c98a2c; --accent-soft: #f7ecda;
+    --good: #2f7d4f; --good-soft: #e3f1e8; --warn: #a4670f; --warn-soft: #f7ecd8; --bad: #b4442c; --bad-soft: #f8e6e1;
+    --me: #1f3a5f; --me-ink: #ffffff; --them: #ffffff; --them-ink: #1b2230;
+    --skin: #d6a37c; --skin-2: #c58f66; --skin-3: #a8714d; --portrait-bg: #dbe4ef;
+    --shadow-sm: 0 1px 2px rgba(20, 28, 40, .06);
+    --shadow: 0 1px 2px rgba(20, 28, 40, .05), 0 8px 24px rgba(20, 28, 40, .07);
+    --radius: 16px; --radius-sm: 10px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #131517; --surface: #1c1f22; --surface-2: #22262a; --ink: #e8e6e1; --muted: #9aa0a6;
-      --line: #2e3337; --accent: #74b39d; --accent-ink: #0f1412; --accent-soft: #1f2e29;
-      --me: #2f5d50; --me-ink: #eef5f2; --them: #22262a; --them-ink: #e8e6e1;
-      --good: #6cc391; --good-soft: #1b2b22; --bad: #e88a73; --bad-soft: #2f1f1b; --warn: #e0b060; --warn-soft: #2d2618;
-      --shadow: 0 1px 2px rgba(0,0,0,.4);
+      --bg: #0f1318; --bg-2: #141a21; --surface: #181e26; --surface-2: #1d242d; --surface-3: #232b35;
+      --ink: #e9ecf1; --ink-2: #c3c9d3; --muted: #8d96a3; --line: #28313c; --line-2: #343e4b;
+      --brand: #6f9ad6; --brand-2: #8db0e3; --brand-ink: #0c1420; --brand-soft: #1b2a3d;
+      --accent: #e3a84f; --accent-soft: #2e2618;
+      --good: #6cc391; --good-soft: #17281e; --warn: #e3b25f; --warn-soft: #2c2416; --bad: #ec8a74; --bad-soft: #2f1c18;
+      --me: #2c5282; --me-ink: #f2f6fc; --them: #1d242d; --them-ink: #e9ecf1;
+      --portrait-bg: #1f3048;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4); --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 8px 24px rgba(0, 0, 0, .35);
     }
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
-  button, input, textarea, select { font: inherit; color: inherit; }
+  body {
+    margin: 0; color: var(--ink); background: var(--bg);
+    font: 15px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; }
   .hidden { display: none !important; }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+  :focus-visible { outline: 2px solid var(--brand-2); outline-offset: 2px; }
 
-  /* ---------- setup ---------- */
-  #setup { padding: 40px 0 60px; }
-  .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
-  .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 20px; flex: none; }
-  .avatar.sm { width: 38px; height: 38px; font-size: 16px; }
-  h1 { font-size: 26px; line-height: 1.2; margin: 0; letter-spacing: -.01em; }
-  .sub { color: var(--muted); margin: 2px 0 0; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; box-shadow: var(--shadow); }
-  label.f { display: block; font-weight: 600; margin: 0 0 6px; }
-  .hint { color: var(--muted); font-size: 13px; font-weight: 400; }
-  input[type=text], textarea { width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; outline: none; }
-  input[type=text]:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-  textarea { resize: vertical; min-height: 70px; }
-  .field { margin-bottom: 20px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-  .chip { border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
-  .chip:hover { border-color: var(--accent); color: var(--accent); }
-  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .seg button { text-align: left; border: 1px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
-  .seg button b { display: block; }
-  .seg button span { color: var(--muted); font-size: 12.5px; line-height: 1.35; display: block; }
-  .seg button[aria-pressed=true] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 10px 16px; font-weight: 600; }
+  /* ---------- shared bits ---------- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-2); background: var(--surface); border-radius: 12px; padding: 10px 16px; font-weight: 600; transition: background .15s, border-color .15s, transform .05s; }
   .btn:hover { border-color: var(--muted); }
-  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  .btn.primary:hover { filter: brightness(1.07); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+  .btn.primary:hover { background: var(--brand-2); border-color: var(--brand-2); }
   .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
-  .btn.ghost:hover { color: var(--ink); }
+  .btn.ghost:hover { color: var(--ink); background: var(--surface-3); }
+  .btn.lg { padding: 13px 22px; font-size: 16px; border-radius: 14px; }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
-  .resume { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: var(--warn-soft); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; }
-  h2 { font-size: 15px; margin: 34px 0 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
-  .hist { display: grid; gap: 8px; }
-  .hist-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; text-align: left; width: 100%; }
-  .hist-item:hover { border-color: var(--muted); }
-  .hist-item .t { flex: 1; min-width: 0; }
-  .hist-item .t b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-  .hist-item .t span { color: var(--muted); font-size: 13px; }
-  .badge { font-weight: 700; border-radius: 8px; padding: 3px 9px; font-size: 14px; flex: none; }
+  .icon-btn { width: 40px; height: 40px; padding: 0; border-radius: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .muted { color: var(--muted); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--surface-3); color: var(--ink-2); white-space: nowrap; }
+  .pill .led { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.ok .led { background: #3fae6a; box-shadow: 0 0 0 3px rgba(63, 174, 106, .18); }
+  .pill.down .led { background: #d9534f; box-shadow: 0 0 0 3px rgba(217, 83, 79, .18); }
   .b-good { background: var(--good-soft); color: var(--good); }
   .b-mid { background: var(--warn-soft); color: var(--warn); }
   .b-bad { background: var(--bad-soft); color: var(--bad); }
-  .empty { color: var(--muted); font-size: 14px; }
+  input[type=text], textarea { width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; outline: none; transition: border-color .15s, box-shadow .15s; }
+  input[type=text]:focus, textarea:focus { border-color: var(--brand-2); box-shadow: 0 0 0 4px var(--brand-soft); }
+  textarea { resize: vertical; }
+  label.f { display: block; font-weight: 650; margin: 0 0 8px; }
+  .hint { color: var(--muted); font-weight: 400; font-size: 13px; }
+  .banner { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; border-radius: 14px; padding: 12px 16px; margin-bottom: 18px; border: 1px solid var(--line); }
+  .banner.warn { background: var(--warn-soft); }
+  .banner.bad { background: var(--bad-soft); }
+  .banner code { background: var(--surface); padding: 1px 6px; border-radius: 6px; font-size: 13px; }
 
-  /* ---------- chat ---------- */
-  #chat { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
-  .top { background: var(--surface); border-bottom: 1px solid var(--line); }
-  .top .wrap { display: flex; align-items: center; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
-  .who { flex: 1; min-width: 0; }
-  .who b { display: block; }
-  .who span { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #3fae6a; display: inline-block; }
-  .topic-bar { background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
-  .topic-bar .wrap { padding-top: 7px; padding-bottom: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #log { flex: 1; overflow-y: auto; padding: 18px 0 8px; }
-  #log .wrap { display: flex; flex-direction: column; gap: 6px; }
-  .scene { align-self: center; color: var(--muted); font-size: 13px; font-style: italic; margin: 6px 0 10px; text-align: center; }
-  .msg { max-width: 78%; padding: 9px 13px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; box-shadow: var(--shadow); }
-  .msg time { display: block; font-size: 11px; opacity: .6; margin-top: 3px; text-align: right; }
-  .msg.them { align-self: flex-start; background: var(--them); color: var(--them-ink); border: 1px solid var(--line); border-bottom-left-radius: 5px; }
-  .msg.me { align-self: flex-end; background: var(--me); color: var(--me-ink); border-bottom-right-radius: 5px; }
-  .msg.me + .msg.them, .msg.them + .msg.me { margin-top: 8px; }
+  /* ---------- top bar ---------- */
+  .topbar { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .topbar .wrap { display: flex; align-items: center; gap: 12px; height: 60px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -.01em; }
+  .logo .mini { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; flex: none; }
+  .logo small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; letter-spacing: 0; }
+  .topbar .spacer { flex: 1; }
+  .status-pills { display: flex; gap: 6px; }
+
+  /* ---------- lobby ---------- */
+  #setup { padding-bottom: 60px; }
+  .hero { display: grid; grid-template-columns: 1.25fr 1fr; gap: 28px; align-items: center; padding: 44px 0 28px; }
+  .hero h1 { font-size: clamp(30px, 4.2vw, 46px); line-height: 1.08; letter-spacing: -.025em; margin: 0 0 14px; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero p.lead { font-size: 17px; color: var(--ink-2); margin: 0 0 20px; max-width: 34em; }
+  .hero .facts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .profile { padding: 22px; display: flex; gap: 18px; align-items: center; position: relative; overflow: hidden; }
+  .profile::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 80% at 100% 0%, var(--brand-soft), transparent 60%); pointer-events: none; }
+  .profile .big { width: 132px; height: 132px; flex: none; border-radius: 50%; box-shadow: 0 0 0 6px var(--surface), 0 0 0 7px var(--line); position: relative; }
+  .profile h2 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .profile .role { color: var(--muted); margin: 2px 0 10px; }
+  .profile .traits { display: flex; flex-wrap: wrap; gap: 6px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 6px 0 24px; }
+  .stat { padding: 14px 16px; }
+  .stat b { display: block; font-size: 24px; letter-spacing: -.02em; }
+  .stat span { color: var(--muted); font-size: 13px; }
+  .setup-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; align-items: start; }
+  .setup-card { padding: 24px; }
+  .step { display: flex; gap: 12px; margin-bottom: 22px; }
+  .step .n { width: 26px; height: 26px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-weight: 750; font-size: 13px; display: grid; place-items: center; flex: none; margin-top: 1px; }
+  .step .body { flex: 1; min-width: 0; }
+  .scenarios { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .scenario { text-align: left; border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start; transition: border-color .15s, background .15s; }
+  .scenario:hover { border-color: var(--brand-2); background: var(--brand-soft); }
+  .scenario .ic { font-size: 18px; line-height: 1.2; }
+  .scenario b { display: block; font-size: 13.5px; line-height: 1.3; }
+  .scenario span { color: var(--muted); font-size: 12px; line-height: 1.3; }
+  .diff { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .diff button { text-align: left; border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 12px; transition: border-color .15s, background .15s; }
+  .diff button b { display: flex; align-items: center; justify-content: space-between; }
+  .diff button span { color: var(--muted); font-size: 12.5px; line-height: 1.35; display: block; margin-top: 4px; }
+  .diff button[aria-pressed=true] { border-color: var(--brand); background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand); }
+  .bars { display: inline-flex; gap: 2px; align-items: flex-end; }
+  .diff button span.bars { display: inline-flex; margin: 0; }
+  .bars i { display: block; width: 4px; border-radius: 2px; background: var(--line-2); }
+  .bars i:nth-child(1) { height: 6px; } .bars i:nth-child(2) { height: 10px; } .bars i:nth-child(3) { height: 14px; }
+  [data-v=easy] .bars i:nth-child(1), [data-v=normal] .bars i:nth-child(-n+2), [data-v=hard] .bars i { background: var(--accent); }
+  .cta-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+  .side h3 { margin: 0 0 12px; font-size: 15px; }
+  .hist { display: grid; gap: 8px; }
+  .hist-row { display: flex; gap: 6px; }
+  .hist-item { flex: 1; min-width: 0; display: flex; gap: 12px; align-items: center; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 12px; }
+  .hist-item:hover { border-color: var(--line-2); background: var(--surface-2); }
+  .hist-item .t { flex: 1; min-width: 0; }
+  .hist-item .t b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; font-size: 14px; }
+  .hist-item .t span { color: var(--muted); font-size: 12.5px; }
+  .score-chip { font-weight: 750; border-radius: 10px; padding: 6px 8px; font-size: 13px; min-width: 46px; text-align: center; flex: none; }
+  .hist-del { width: 40px; flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; color: var(--muted); display: grid; place-items: center; }
+  .hist-del:hover { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+  .empty { color: var(--muted); font-size: 14px; padding: 18px; text-align: center; border: 1px dashed var(--line-2); border-radius: 12px; }
+  .how { padding: 18px; margin-top: 14px; }
+  .how ol { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
+  .how li { margin-bottom: 6px; }
+
+  /* ---------- office (chat) ---------- */
+  #chat { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+  .office { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: 0; }
+  .chatcol { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; min-width: 0; border-right: 1px solid var(--line); }
+  .chathead { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .chathead .face-sm { width: 44px; height: 44px; flex: none; border-radius: 50%; overflow: hidden; }
+  .chathead .who { flex: 1; min-width: 0; }
+  .chathead .who b { display: block; font-size: 15.5px; }
+  .chathead .who .sub { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mood-chip { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: var(--ink-2); }
+  .typing-now { color: var(--brand-2); font-weight: 600; }
+  #log { overflow-y: auto; padding: 22px 0 12px; background:
+      radial-gradient(800px 400px at 0% 0%, var(--brand-soft), transparent 70%), var(--bg); }
+  #logInner { max-width: 760px; margin: 0 auto; padding: 0 18px; display: flex; flex-direction: column; gap: 6px; }
+  .scene { align-self: center; color: var(--muted); font-size: 12.5px; font-style: italic; margin: 6px 0 10px; text-align: center; background: var(--surface-3); padding: 3px 12px; border-radius: 999px; }
+  .msg { max-width: 76%; padding: 10px 14px; border-radius: 18px; white-space: pre-wrap; word-wrap: break-word; box-shadow: var(--shadow-sm); animation: pop .18s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .msg .act { font-style: italic; color: var(--muted); }
+  .msg.me .act { color: inherit; opacity: .75; }
+  .msg time { display: block; font-size: 11px; opacity: .55; margin-top: 3px; text-align: right; }
+  .msg.them { align-self: flex-start; background: var(--them); color: var(--them-ink); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+  .msg.me { align-self: flex-end; background: var(--me); color: var(--me-ink); border-bottom-right-radius: 6px; }
+  .msg.me + .msg.them, .msg.them + .msg.me { margin-top: 10px; }
   .typing { align-self: flex-start; display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; padding: 4px 2px; }
-  .dots { display: inline-flex; gap: 4px; background: var(--them); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+  .dots { display: inline-flex; gap: 4px; background: var(--them); border: 1px solid var(--line); border-radius: 16px; padding: 11px 13px; }
   .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
   .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
   @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
-  .err { align-self: center; background: var(--bad-soft); color: var(--bad); border-radius: 10px; padding: 10px 14px; font-size: 13.5px; max-width: 92%; }
-  .err button { margin-left: 8px; }
-  .closing { align-self: center; display: flex; gap: 10px; align-items: center; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 12px; padding: 10px 14px; margin-top: 10px; }
-  .composer { background: var(--surface); border-top: 1px solid var(--line); }
-  .composer .wrap { display: flex; gap: 10px; align-items: flex-end; padding-top: 10px; padding-bottom: 12px; }
-  #input { flex: 1; min-height: 44px; max-height: 160px; resize: none; border-radius: 22px; padding: 11px 16px; }
-  #send { border-radius: 50%; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; flex: none; }
-  .tip { color: var(--muted); font-size: 12px; padding-bottom: 8px; }
+  .err { align-self: center; background: var(--bad-soft); color: var(--bad); border-radius: 12px; padding: 10px 14px; font-size: 13.5px; max-width: 92%; }
+  .err button { margin-left: 10px; padding: 4px 10px; }
+  .closing { align-self: center; display: flex; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 14px; padding: 12px 14px 12px 18px; margin: 12px 0 6px; animation: pop .25s ease-out; }
+  .composer { padding: 12px 18px 14px; border-top: 1px solid var(--line); background: var(--surface); }
+  .composer .row { max-width: 760px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+  #input { flex: 1; min-height: 46px; max-height: 160px; resize: none; border-radius: 23px; padding: 12px 18px; }
+  #send { width: 46px; height: 46px; border-radius: 50%; padding: 0; flex: none; }
+  .tip { max-width: 760px; margin: 6px auto 0; color: var(--muted); font-size: 12px; }
+
+  /* ---------- negotiation board ---------- */
+  .board { overflow-y: auto; background: var(--surface-2); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .board .card { padding: 14px 16px; box-shadow: var(--shadow-sm); }
+  .board h4 { margin: 0 0 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+  .portrait-card { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 18px 16px 14px !important; }
+  .portrait-card .face-lg { width: 132px; height: 132px; border-radius: 50%; box-shadow: 0 0 0 5px var(--surface), 0 0 0 6px var(--line); }
+  .portrait-card .mood-big { margin-top: 12px; font-weight: 700; font-size: 16px; }
+  .portrait-card .mood-note { color: var(--muted); font-size: 12.5px; }
+  .timeline { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; justify-content: center; min-height: 24px; }
+  .timeline span { width: 24px; height: 24px; display: grid; place-items: center; font-size: 14px; border-radius: 7px; background: var(--surface-3); }
+  .timeline span:last-child { box-shadow: inset 0 0 0 1.5px var(--brand-2); }
+  .offer-now { font-size: 22px; font-weight: 750; letter-spacing: -.02em; line-height: 1.2; }
+  .offer-now.text { font-size: 15.5px; font-weight: 650; letter-spacing: 0; }
+  .offer-delta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .offer-delta b { color: var(--good); }
+  .track { position: relative; height: 10px; background: var(--surface-3); border-radius: 999px; margin: 18px 0 8px; }
+  .track .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: linear-gradient(90deg, var(--brand-2), var(--accent)); transition: width .5s ease; }
+  .track .knob { position: absolute; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: var(--surface); border: 3px solid var(--accent); transition: left .5s ease; }
+  .track-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .chart { width: 100%; height: 86px; display: block; margin-top: 6px; }
+  .meter { height: 8px; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 999px; transition: width .4s ease, background .4s; }
+  .heard { display: flex; flex-direction: column; gap: 8px; }
+  .heard .turn { border-left: 3px solid var(--line-2); padding: 2px 0 2px 10px; }
+  .heard .turn.moved { border-color: var(--good); }
+  .heard .turn.bad { border-color: var(--bad); }
+  .heard .q { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .tag { font-size: 11.5px; font-weight: 650; padding: 2px 8px; border-radius: 999px; background: var(--surface-3); color: var(--ink-2); }
+  .tag.good { background: var(--good-soft); color: var(--good); }
+  .tag.bad { background: var(--bad-soft); color: var(--bad); }
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .effect { font-size: 12px; font-weight: 650; margin-top: 3px; }
+  .effect.up { color: var(--good); } .effect.hold { color: var(--muted); } .effect.end { color: var(--bad); }
+  .board-toggle { display: none; }
+  .board-close { display: none; }
 
   /* ---------- scorecard ---------- */
-  #score { position: fixed; inset: 0; background: var(--bg); overflow-y: auto; z-index: 10; }
-  #score .wrap { padding-top: 30px; padding-bottom: 60px; }
+  #score { min-height: 100vh; }
+  #scoreInner { max-width: 880px; margin: 0 auto; padding: 28px 16px 70px; }
   .loading { text-align: center; padding: 120px 0; color: var(--muted); }
-  .spinner { width: 34px; height: 34px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--line); border-top-color: var(--brand-2); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .hero { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
-  .ring { position: relative; width: 116px; height: 116px; flex: none; }
+  .result { display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; padding: 24px; }
+  .ring { position: relative; width: 128px; height: 128px; }
   .ring svg { transform: rotate(-90deg); }
-  .ring .num { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-size: 34px; font-weight: 800; line-height: 1; }
-  .ring .num small { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 4px; }
-  .hero .txt { flex: 1; min-width: 220px; }
-  .pill { display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 10px; border-radius: 999px; margin-bottom: 8px; }
-  .headline { font-size: 20px; font-weight: 700; line-height: 1.3; margin: 0 0 6px; }
-  .terms { color: var(--muted); margin: 0; }
-  .sec { margin-top: 26px; }
-  .sec h3 { font-size: 16px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
-  .sec h3 .ic { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 13px; }
-  .pt { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+  .ring .num { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-size: 38px; font-weight: 800; line-height: 1; letter-spacing: -.03em; }
+  .ring .num small { display: block; font-size: 12.5px; color: var(--muted); font-weight: 600; margin-top: 4px; letter-spacing: 0; }
+  .result .headline { font-size: 21px; font-weight: 750; line-height: 1.3; margin: 8px 0 6px; letter-spacing: -.01em; }
+  .result .terms { color: var(--muted); margin: 0; }
+  .result .face-md { width: 96px; height: 96px; border-radius: 50%; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .sec { padding: 18px 20px; }
+  .sec h3 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .sec h3 .ic { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-size: 13px; }
+  .pt { border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 11px 13px; margin-bottom: 8px; }
   .pt q { display: block; font-style: italic; quotes: "\201C" "\201D"; }
-  .pt .why { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .pt .why { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
   .rewrite .old { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--bad); }
   .rewrite .new { margin-top: 6px; font-weight: 600; }
   .rewrite .new::before { content: "Try: "; color: var(--good); }
-  .hidden-hand { background: var(--surface); border: 1px dashed var(--muted); border-radius: 12px; padding: 14px 16px; }
-  .hidden-hand dl { margin: 0; display: grid; grid-template-columns: 140px 1fr; gap: 6px 14px; }
+  .hidden-hand dl { margin: 0; display: grid; grid-template-columns: 150px 1fr; gap: 8px 14px; }
   .hidden-hand dt { color: var(--muted); font-size: 13.5px; }
   .hidden-hand dd { margin: 0; }
-  @media (max-width: 560px) {
-    .seg { grid-template-columns: 1fr; }
-    .msg { max-width: 88%; }
-    .hidden-hand dl { grid-template-columns: 1fr; }
-    .hidden-hand dt { margin-top: 6px; }
-  }
+  .score-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
 
-  dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); width: min(620px, calc(100vw - 32px)); padding: 22px; }
-  dialog::backdrop { background: rgba(0,0,0,.4); }
+  dialog { border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); width: min(640px, calc(100vw - 32px)); padding: 24px; box-shadow: var(--shadow); }
+  dialog::backdrop { background: rgba(10, 14, 20, .5); backdrop-filter: blur(2px); }
   dialog h3 { margin: 0 0 16px; }
+  .field { margin-bottom: 18px; }
+
+  /* ---------- portrait ---------- */
+  .face { display: block; width: 100%; height: 100%; }
+  .face .sweat { animation: drip 1.6s ease-in infinite; }
+  @keyframes drip { 0% { transform: translateY(0); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(6px); opacity: 0; } }
+  .face-wrap { animation: none; }
+  .face-wrap.changed { animation: nod .45s ease; }
+  @keyframes nod { 0% { transform: scale(1); } 40% { transform: scale(1.04) rotate(-1.5deg); } 100% { transform: scale(1); } }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1023px) {
+    .office { grid-template-columns: minmax(0, 1fr); }
+    .chatcol { border-right: 0; }
+    .board { position: fixed; inset: 0 0 0 auto; width: min(380px, 92vw); z-index: 20; box-shadow: var(--shadow); transform: translateX(105%); transition: transform .25s ease; }
+    .board.open { transform: none; }
+    .board-toggle { display: inline-flex; }
+    .board-close { display: inline-flex; align-self: flex-end; }
+  }
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; padding-top: 28px; }
+    .setup-grid { grid-template-columns: 1fr; }
+    .grid2 { grid-template-columns: 1fr; }
+    .result { grid-template-columns: auto 1fr; }
+    .result .face-md { display: none; }
+  }
+  @media (max-width: 560px) {
+    .scenarios, .diff { grid-template-columns: 1fr 1fr; }
+    .stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .stat b { font-size: 20px; }
+    .msg { max-width: 88%; }
+    .profile { flex-direction: column; text-align: center; }
+    .profile .traits { justify-content: center; }
+    .hidden-hand dl { grid-template-columns: 1fr; }
+    .status-pills .pill span.lbl { display: none; }
+    .chathead { padding: 10px 12px; gap: 8px; }
+    .chathead .who .sub .topic-text, .chathead .who .sub .sep { display: none; }
+    #endBtn { padding: 8px 12px; }
+    .board-toggle { padding: 8px 10px; }
+    .result { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  }
 </style>
 </head>
 <body>
 
-<!-- ============ SETUP ============ -->
-<section id="setup" class="wrap">
-  <div class="brand">
-    <div class="avatar">H</div>
-    <div>
-      <h1>Meeting with Mr Hagrid</h1>
-      <p class="sub">Rehearse the conversation with your director before the real one.</p>
+<!-- ============ LOBBY ============ -->
+<section id="setup">
+  <header class="topbar">
+    <div class="wrap">
+      <div class="logo"><div class="mini" id="logoFace"></div><div>Mr Hagrid<small>Negotiation simulator</small></div></div>
+      <div class="spacer"></div>
+      <div class="status-pills">
+        <span class="pill" id="pillN8n" title="n8n workflow server"><i class="led"></i><span class="lbl">n8n</span></span>
+        <span class="pill" id="pillOllama" title="Ollama local model"><i class="led"></i><span class="lbl">Ollama</span></span>
+      </div>
+      <button class="btn ghost icon-btn" id="settingsBtn" aria-label="Settings" title="Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
     </div>
-  </div>
+  </header>
 
-  <div id="resumeBox" class="resume hidden">
-    <div><b>Unfinished meeting</b><br><span class="hint" id="resumeTopic"></span></div>
-    <div class="row"><button class="btn" id="discardBtn">Discard</button><button class="btn primary" id="resumeBtn">Go back in</button></div>
-  </div>
-
-  <div class="card">
-    <div class="field">
-      <label class="f" for="topic">What do you want to talk to him about?</label>
-      <input type="text" id="topic" placeholder="e.g. Raise my basic salary from RM3,500 to RM4,500" autocomplete="off">
-      <div class="chips" id="chips"></div>
-    </div>
-    <div class="field">
-      <label class="f" for="details">Background he'd already know <span class="hint">(optional)</span></label>
-      <textarea id="details" placeholder="e.g. I've been here 2 years, rebuilt the ERP integration, no raise since I joined."></textarea>
-    </div>
-    <div class="field">
-      <label class="f">How tough is he today?</label>
-      <div class="seg" id="diff">
-        <button type="button" data-v="easy" aria-pressed="false"><b>Easy</b><span>Good mood, open to a fair case</span></button>
-        <button type="button" data-v="normal" aria-pressed="true"><b>Normal</b><span>Pushes back, wants evidence</span></button>
-        <button type="button" data-v="hard" aria-pressed="false"><b>Hard</b><span>Stressed, lowballs, plays games</span></button>
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <p class="eyebrow">Practice room</p>
+        <h1>Rehearse the hard conversation <em>before it's real.</em></h1>
+        <p class="lead">Mr Hagrid pushes back, gets impatient, matches outside offers, and sometimes panics, much like a real director. Every move you make is read live, and you get an honest scorecard at the end.</p>
+        <div class="facts">
+          <span class="pill">🔒 Runs offline</span><span class="pill">⚡ ~5 s replies</span><span class="pill">🎭 Reacts to anything you say</span>
+        </div>
+      </div>
+      <div class="card profile">
+        <div class="big face-wrap" id="heroFace"></div>
+        <div>
+          <h2>Mr Hagrid</h2>
+          <div class="role">Director · Packaging factory, Selangor</div>
+          <div class="traits"><span class="pill">Practical</span><span class="pill">Cost-conscious</span><span class="pill">Gruff but fair</span><span class="pill">Late 50s</span></div>
+        </div>
       </div>
     </div>
-    <div class="row" style="justify-content: space-between;">
-      <button class="btn ghost" id="settingsBtn">Settings</button>
-      <button class="btn primary" id="knockBtn">Knock on his door</button>
+
+    <div id="healthBanner" class="banner bad hidden"></div>
+    <div id="resumeBox" class="banner warn hidden">
+      <div><b>You left a meeting unfinished.</b> <span class="hint" id="resumeTopic"></span></div>
+      <div style="display:flex; gap:8px;"><button class="btn" id="discardBtn">Discard</button><button class="btn primary" id="resumeBtn">Go back in</button></div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="setup-grid">
+      <div class="card setup-card">
+        <div class="step"><div class="n">1</div><div class="body">
+          <label class="f" for="topic">What do you want to talk to him about?</label>
+          <input type="text" id="topic" placeholder="e.g. Raise my basic salary from RM3,500 to RM4,500" autocomplete="off">
+          <div class="scenarios" id="chips"></div>
+        </div></div>
+        <div class="step"><div class="n">2</div><div class="body">
+          <label class="f" for="details">Background he'd already know <span class="hint">(optional)</span></label>
+          <textarea id="details" rows="2" placeholder="e.g. I've been here 2 years, rebuilt the ERP integration, no raise since I joined."></textarea>
+        </div></div>
+        <div class="step"><div class="n">3</div><div class="body">
+          <label class="f">How tough is he today?</label>
+          <div class="diff" id="diff">
+            <button type="button" data-v="easy" aria-pressed="false"><b>Easy <span class="bars"><i></i><i></i><i></i></span></b><span>Good mood. A fair case can get your full ask.</span></button>
+            <button type="button" data-v="normal" aria-pressed="true"><b>Normal <span class="bars"><i></i><i></i><i></i></span></b><span>Pushes back, wants evidence, meets you partway.</span></button>
+            <button type="button" data-v="hard" aria-pressed="false"><b>Hard <span class="bars"><i></i><i></i><i></i></span></b><span>Tough, lowballs, fights back if you threaten him.</span></button>
+          </div>
+        </div></div>
+        <div class="cta-row">
+          <span class="hint">Tip: say a number (“I want RM4,500”) and give reasons. He reacts to both.</span>
+          <button class="btn primary lg" id="knockBtn">Knock on his door →</button>
+        </div>
+      </div>
+
+      <aside class="side">
+        <h3>Past meetings</h3>
+        <div class="hist" id="hist"></div>
+        <div class="card how">
+          <p class="eyebrow">How it works</p>
+          <ol>
+            <li>He secretly plans an opening offer and a hidden ceiling.</li>
+            <li>Your evidence, counter-offers and outside offers move him up, one step at a time.</li>
+            <li>Weak arguments, repeating yourself or pushing too hard cost you his patience.</li>
+            <li>End the meeting to see your score and his hidden hand.</li>
+          </ol>
+        </div>
+      </aside>
     </div>
   </div>
-
-  <h2>Past meetings</h2>
-  <div class="hist" id="hist"></div>
 </section>
 
-<!-- ============ CHAT ============ -->
+<!-- ============ OFFICE ============ -->
 <section id="chat" class="hidden">
-  <div class="top">
-    <div class="wrap">
-      <div class="avatar sm">H</div>
-      <div class="who"><b>Mr Hagrid</b><span><i class="dot"></i><span id="status">Director · in his office</span></span></div>
-      <button class="btn" id="endBtn">End meeting</button>
-    </div>
-  </div>
-  <div class="topic-bar"><div class="wrap" id="topicBar"></div></div>
-  <div id="log"><div class="wrap" id="logInner"></div></div>
-  <div class="composer">
-    <div class="wrap" style="flex-direction: column; align-items: stretch; gap: 0;">
-      <div style="display: flex; gap: 10px; align-items: flex-end;">
-        <textarea id="input" rows="1" placeholder="Say something to Mr Hagrid…"></textarea>
-        <button class="btn primary" id="send" aria-label="Send">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </button>
+  <div id="demoBar" class="hidden" style="background: var(--accent-soft); color: var(--warn); text-align: center; font-size: 13px; padding: 6px;">Demo mode: a recorded meeting, not connected to n8n.</div>
+  <div class="office">
+    <div class="chatcol">
+      <div class="chathead">
+        <div class="face-sm face-wrap" id="headFace"></div>
+        <div class="who">
+          <b>Mr Hagrid</b>
+          <div class="sub"><span class="mood-chip" id="status">Director · in his office</span><span class="sep">·</span><span id="topicBar" class="topic-text"></span></div>
+        </div>
+        <button class="btn board-toggle" id="boardToggle" aria-label="Show negotiation board">📊 Board</button>
+        <button class="btn" id="endBtn">End meeting</button>
       </div>
-      <div class="tip">Enter to send · Shift+Enter for a new line · "End meeting" when you're done</div>
+      <div id="log"><div id="logInner"></div></div>
+      <div class="composer">
+        <div class="row">
+          <textarea id="input" rows="1" placeholder="Say something to Mr Hagrid…"></textarea>
+          <button class="btn primary" id="send" aria-label="Send">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <div class="tip">Enter to send · Shift+Enter for a new line · “End meeting” for your scorecard</div>
+      </div>
     </div>
+
+    <aside class="board" id="board" aria-label="Negotiation board">
+      <button class="btn ghost board-close" id="boardClose">Close ✕</button>
+      <div class="card portrait-card">
+        <div class="face-lg face-wrap" id="boardFace"></div>
+        <div class="mood-big" id="moodBig">Waiting for you</div>
+        <div class="mood-note" id="moodNote">His mood changes with every move you make.</div>
+        <div class="timeline" id="moodLine" title="His mood, turn by turn"></div>
+      </div>
+      <div class="card">
+        <h4>His offer <span id="offerSteps"></span></h4>
+        <div class="offer-now" id="offerNow">No offer yet</div>
+        <div class="offer-delta" id="offerDelta">Raise your request to get his first offer.</div>
+        <div id="offerTrack" class="hidden">
+          <div class="track"><div class="fill" id="trackFill"></div><div class="knob" id="trackKnob"></div></div>
+          <div class="track-labels"><span id="trackFrom"></span><span id="trackTo"></span></div>
+        </div>
+        <svg class="chart hidden" id="offerChart" viewBox="0 0 300 86" preserveAspectRatio="none" aria-label="How his offer moved"></svg>
+      </div>
+      <div class="card">
+        <h4>His patience <span id="patienceLbl"></span></h4>
+        <div class="meter"><i id="patienceBar" style="width: 100%; background: var(--good);"></i></div>
+      </div>
+      <div class="card">
+        <h4>What he heard</h4>
+        <div class="heard" id="heard"><span class="muted" style="font-size: 13px;">Your moves show up here as you make them.</span></div>
+      </div>
+    </aside>
   </div>
 </section>
 
 <!-- ============ SCORECARD ============ -->
-<section id="score" class="hidden"><div class="wrap" id="scoreInner"></div></section>
+<section id="score" class="hidden"><div id="scoreInner"></div></section>
 
 <!-- ============ SETTINGS ============ -->
 <dialog id="settings">
   <h3>Settings</h3>
-  <div class="field">
-    <label class="f" for="sUrl">n8n webhook base URL</label>
-    <input type="text" id="sUrl">
-  </div>
-  <div class="field">
-    <label class="f" for="sPersona">Who Mr Hagrid is <span class="hint">(make him like the real one)</span></label>
-    <textarea id="sPersona" rows="6"></textarea>
-  </div>
-  <div class="field">
-    <label class="f" for="sMe">Who you are</label>
-    <textarea id="sMe" rows="3"></textarea>
-  </div>
-  <div class="row" style="justify-content: space-between;">
+  <div class="field"><label class="f" for="sUrl">n8n webhook base URL</label><input type="text" id="sUrl"></div>
+  <div class="field"><label class="f" for="sPersona">Who Mr Hagrid is <span class="hint">(make him like the real one)</span></label><textarea id="sPersona" rows="6"></textarea></div>
+  <div class="field"><label class="f" for="sMe">Who you are</label><textarea id="sMe" rows="3"></textarea></div>
+  <div style="display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
     <button class="btn ghost" id="sReset">Reset to defaults</button>
-    <div class="row"><button class="btn" id="sCancel">Cancel</button><button class="btn primary" id="sSave">Save</button></div>
+    <div style="display:flex; gap: 8px;"><button class="btn" id="sCancel">Cancel</button><button class="btn primary" id="sSave">Save</button></div>
   </div>
 </dialog>
 
 <script>
 (() => {
   // ---------------- config ----------------
+  const APP_VERSION = '2026.11.13-9'; // stamped by build/build.js; must match the n8n workflow's version
   const DEFAULTS = {
     url: 'http://localhost:5678/webhook',
-    persona: "Mr Hagrid, Director of a packaging factory in Selangor. Late 50s, came up from operations and sales, not technical. Practical and cost-conscious: cares about production uptime, customer deadlines, cost, and what the other staff will think. Friendly in a gruff way, always busy, little patience for long explanations. Respects people who can show what their work did for the factory; gets annoyed by complaining or comparing with colleagues. Speaks plain, direct English and rarely uses slang.",
+    persona: "Mr Hagrid, Director of a packaging factory in Selangor. Late 50s, came up from operations and sales, not technical. Practical, fair and cost-conscious. Friendly in a gruff way, calm and composed, little patience for long explanations. Respects people who can show what their work did for the factory; gets annoyed by complaining or comparing with colleagues. Speaks plain, direct English and rarely uses slang.",
     me: "The company's IT person: a contract IT developer in a small IT team, handling the ERP, factory systems and anything with a cable. Basic salary RM3,500.",
   };
-  const TOPICS = [
-    'Raise my basic salary from RM3,500 to RM4,500',
-    'Convert my contract to a permanent position',
-    'Budget for a new server before the old one dies',
-    'Work from home 2 days a week',
-    'Hire a junior IT assistant',
-    'Push the ERP go-live deadline back by one month',
+  const SCENARIOS = [
+    { ic: '💰', title: 'Salary raise', sub: 'RM3,500 → RM4,500', topic: 'Raise my basic salary from RM3,500 to RM4,500' },
+    { ic: '📄', title: 'Permanent role', sub: 'Convert my contract', topic: 'Convert my contract to a permanent position' },
+    { ic: '📈', title: 'Promotion', sub: 'Become IT Manager', topic: 'Promotion to IT Manager' },
+    { ic: '🏠', title: 'Work from home', sub: '2 days a week', topic: 'Work from home 2 days a week' },
+    { ic: '🖥️', title: 'Server budget', sub: 'Before the old one dies', topic: 'Budget for a new server before the old one dies' },
+    { ic: '👥', title: 'New hire', sub: 'A junior IT assistant', topic: 'Hire a junior IT assistant' },
   ];
   const OPENERS = {
     easy: ["Ah, come in, come in. What's up?", "Oh, it's you. Sit, sit. What can I do for you?"],
-    normal: ["Ya, come in. What is it?", "Come in. Make it quick ah, I got a meeting at 3.", "Hmm? Ya, what's up?"],
-    hard: ["What now? The bank is calling me in ten minutes.", "Ya, what. Don't tell me the system down again.", "Make it fast. Very busy today."],
+    normal: ["Ya, come in. What is it?", "Come in. What can I do for you?", "Hmm? Ya, what's up?"],
+    hard: ["Ya. What is it?", "Come in. Keep it short.", "Sit. What do you need?"],
   };
 
   // ---------------- storage (never required) ----------------
@@ -270,6 +480,7 @@
   let session = null;       // current meeting
   let briefPromise = null;  // hidden position being prepared
   let busy = false;
+  const DEMO = new URLSearchParams(location.search).get('demo');
 
   // ---------------- helpers ----------------
   const $ = (id) => document.getElementById(id);
@@ -278,7 +489,7 @@
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const uid = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const show = (id) => ['setup', 'chat', 'score'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
+  const show = (id) => { ['setup', 'chat', 'score'].forEach((s) => $(s).classList.toggle('hidden', s !== id)); window.scrollTo(0, 0); };
   // <offer-logic>
   // Hagrid's offer ladder: opening -> steps -> ceiling. A small model can't judge "was that a strong point?"
   // reliably, so this code does: it counts NEW concrete evidence in your message and tells Hagrid
@@ -297,20 +508,50 @@
   const WEAK = /\b(cost of living|bills|expensive|i need (the )?money|please|everyone else|my friend|unfair)\b/i;
   const ladderOf = (b) => (b ? [b.opening_position, ...(Array.isArray(b.steps) ? b.steps : []), b.ceiling].filter(Boolean).map(String) : []);
   const evidenceOf = (t) => ({ cats: Object.keys(EVIDENCE).filter((k) => EVIDENCE[k].test(t)), nums: t.replace(/,/g, '').match(/\d+(\.\d+)?/g) || [] });
-  // Returns { level, moved, points } for this turn. prevMine = your earlier messages (not this one).
+  // Saying they're leaving / taking the other job.
+  const RESIGN = /\b(end (my )?contract|not (renew|extend)\w*|accept (the|their|that|this|new|the new) (new )?(job|offer)|take the (other|new) (job|offer)|resign\w*|quit\w*|i('ll| will) leave|leaving)\b/i;
+  const moneyOf = (s) => { const m = String(s || '').replace(/,/g, '').match(/\d{3,}(\.\d+)?/); return m ? Number(m[0]) : null; };
+  const rm = (n) => 'RM' + Number(n).toLocaleString('en-US') + ' basic salary';
+  // Decides Hagrid's offer for this turn. state = { level, points, override }; prevMine = your earlier messages.
+  // Returns { level, points, override, mode, offerText, final }. mode: none | first | improve | match | last | leaving | hold.
   function decideOffer(brief, difficulty, state, prevMine, text, topic) {
     const ladder = ladderOf(brief);
+    const vals = ladder.map(moneyOf);
+    const isMoney = vals.length > 0 && vals.every((v) => v != null);
     const level = state.level ?? -1;
+    const override = state.override ?? null;
+    const top = ladder.length - 1;
+    const out = (mode, lvl, pts, ov) => ({
+      mode, level: lvl, points: pts, override: ov,
+      offerText: lvl < 0 ? '' : ov != null ? rm(ov) : ladder[lvl],
+      final: lvl >= top,
+    });
     if (level < 0) { // first offer only once they actually raise the topic
       const topicWords = String(topic || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 5);
       const t = text.toLowerCase();
       const asked = /\b(raise|salary|increment|increase|pay|money|budget|offer|propos\w*)\b|rm\s?\d|\d{3,}/.test(t) || topicWords.some((w) => t.includes(w));
-      return asked ? { level: 0, moved: true, points: 0 } : { level: -1, moved: false, points: 0 };
+      return asked ? out('first', 0, 0, null) : out('none', -1, 0, null);
     }
-    if (level >= ladder.length - 1) return { level, moved: false, points: 0 };
-    const seen = new Set();
-    prevMine.forEach((m) => { const e = evidenceOf(m); e.cats.forEach((c) => seen.add('c:' + c)); e.nums.forEach((n) => seen.add('n:' + n)); });
+    const current = override != null ? override : vals[level];
+    const atTop = level >= top;
+    // Leaving: one last-chance jump to his best offer; if already there, he lets them go.
+    if (RESIGN.test(text)) return atTop ? out('leaving', level, 0, override) : out('last', top, 0, null);
     const e = evidenceOf(text);
+    // A competing offer with a number: match it if he can, else go straight to his best.
+    if (isMoney && (e.cats.includes('walkaway') || e.cats.includes('market'))) {
+      // only a number that follows "offer" counts ("the offer from other company is 4300"); "raise to 4500" is their ask
+      const theirs = [...text.replace(/,/g, '').matchAll(/offer[^.!?\d]{0,40}?(\d{4,})/gi)].map((m) => Number(m[1])).filter((n) => n > current);
+      if (theirs.length) {
+        const c = Math.max(...theirs);
+        if (c >= vals[top]) return atTop ? out('hold', level, 0, override) : out('last', top, 0, null);
+        let lvl = level;
+        while (lvl + 1 < top && vals[lvl + 1] <= c) lvl++;
+        return out('match', lvl, 0, vals[lvl] === c ? null : c);
+      }
+    }
+    if (atTop) return out('hold', level, 0, override);
+    const seen = new Set();
+    prevMine.forEach((m) => { const pe = evidenceOf(m); pe.cats.forEach((c) => seen.add('c:' + c)); pe.nums.forEach((n) => seen.add('n:' + n)); });
     const fresh = e.cats.filter((c) => !seen.has('c:' + c)).length + (e.nums.some((n) => !seen.has('n:' + n)) ? 1 : 0);
     const strength = e.cats.length + (e.nums.length ? 1 : 0);
     // A credible walk-away threat (first time only) is the strongest lever: it earns a move on its own.
@@ -320,17 +561,173 @@
     const strong = walk || solo || (strength >= 2 && fresh >= 1 && !WEAK.test(text) && text.trim().split(/\s+/).length >= 5);
     const points = (state.points || 0) + (walk ? 2 : strong ? 1 : 0);
     const need = difficulty === 'easy' ? 1 : difficulty === 'hard' ? 2 : level === 0 ? 1 : 2;
-    return points >= need ? { level: level + 1, moved: true, points: 0 } : { level, moved: false, points };
+    if (points < need) return out('hold', level, points, override);
+    let next = level + 1; // skip rungs at or below a matched offer
+    while (next < top && vals[next] != null && vals[next] <= current) next++;
+    return out('improve', next, 0, null);
+  }
+
+  // When they state a target in the chat ("I want 4500") that differs from what the topic implied,
+  // resize the money ladder above his current offer. Easy can reach the full ask; harder modes less.
+  const RESCALE = { easy: 1.0, normal: 0.65, hard: 0.35 };
+  const r50 = (n) => Math.round(n / 50) * 50;
+  function rescaleForAsk(brief, difficulty, state, text) {
+    const m = brief && brief.money; if (!m || !m.cur) return false;
+    if (!/\b(want\w*|wanna|ask\w*|hop\w*|target|looking (for|at)|expect\w*|raise (it )?to|make it|be|get)\b/i.test(text)) return false;
+    const plain = text.replace(/,/g, '');
+    const offered = new Set([...plain.matchAll(/offer[^.!?\d]{0,40}?(\d{4,})/gi)].map((x) => Number(x[1]))); // competing offers aren't their ask
+    const nums = (plain.match(/\d{4,}/g) || []).map(Number).filter((n) => n > m.cur && n <= m.cur * 2 && !offered.has(n));
+    if (!nums.length) return false;
+    const ask = Math.max(...nums);
+    if (ask === m.ask) return false;
+    const vals = ladderOf(brief).map(moneyOf);
+    if (!vals.length || vals.some((v) => v == null)) return false;
+    const top = vals.length - 1, level = state.level ?? -1, from = Math.max(level, 0);
+    const curVal = level >= 0 && state.override != null ? state.override : vals[from];
+    const oldCeil = vals[top];
+    let ceil = r50(m.cur + (Math.min(ask, m.cur * 1.4) - m.cur) * (RESCALE[difficulty] ?? 0.65));
+    ceil = ask < oldCeil ? Math.min(oldCeil, ask) : Math.max(ceil, oldCeil); // only shrinks if they ask for less than he'd pay
+    ceil = Math.max(ceil, curVal);
+    if (ceil === oldCeil) { m.ask = ask; return false; }
+    for (let i = from + 1; i <= top; i++) vals[i] = r50(curVal + ((ceil - curVal) * (i - from)) / (top - from));
+    brief.opening_position = rm(vals[0]);
+    brief.steps = vals.slice(1, top).map(rm);
+    brief.ceiling = rm(vals[top]);
+    m.ask = ask;
+    return true;
+  }
+
+  const ACCEPT = /\b(ok(ay)?|deal|accept\w*|agreed?|sounds good|fine|thanks?|thank you|alright|setuju)\b/i;
+  const RUDE = /\b(sybau|stfu|shut up|stupid|idiot|dumb|useless|bodoh|bangang|bullshit|tf|wtf)\b/i;
+  const INSULT = /\b(fuck\w*|f\*+k|bitch\w*|asshole|bastard|motherf\w*|babi|sial|pukimak|cibai|puki)\b/i; // ends the meeting at once
+  const EXIT = /^\s*(bye+|bye bye|goodbye|good bye|see ya|see you|later|i'?m out|i'?m done|im out|im done|i'?m leaving|im leaving)\b/i;
+  // The topic box may just set the scene ("Mr Hagrid has an affair with pavi"); the real ask can come later in
+  // the chat ("raise my salary to rm5000"). True when that first ask isn't covered by his secret position.
+  const MONEY_ASK = /\b(salary|raise|increment|pay ?rise|basic)\b|rm\s?\d|\d{4,}/i;
+  function askMismatch(topic, brief, text) {
+    if (!brief) return false;
+    if (MONEY_ASK.test(text) && !brief.money) return true; // money ask, but no money ladder
+    const words = (s) => new Set(String(s).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 4 && !['want', 'talk', 'about', 'with', 'your', 'have', 'need', 'like', 'mr', 'hagrid'].includes(w)));
+    const t = words(topic), m = words(text);
+    return m.size > 0 && ![...m].some((w) => t.has(w) || [...t].some((x) => x.startsWith(w.slice(0, 5)) || w.startsWith(x.slice(0, 5))));
+  }
+  // Things that would genuinely scare or unsettle a real person: threats to expose him, rumours about his private life.
+  const THREAT = /(keep (my|our) mouth(s)? shut|keep (it|this) (quiet|secret)|tell\w* your (wife|family|boss)|your (wife|family) (will |gonna |going to )?(know|find out|see)|show (it |this |them |the \w+ )?(to )?your (wife|family)|tell (everyone|everybody|hr|the owner|the board)|expose you|or else|unless you|for my silence|i('?ll| will) (report|tell|expose|leak|show)|if not,? i will|everyone will know|divorce)/i;
+  const PRIVATE = /\b(scandal|affair|cheat\w*|love relationship|romantic|your wife|girlfriend|mistress|sleeping with|having something|you and \w+ (have|got|are))\b/i;
+  const PROOF = /\b(footage|video|photos?|pictures?|proof|evidence|recording|screenshots?)\b/i;
+  const VIOLENCE = /\b(u r dead|you('?re| are) dead|kill you|hurt you|beat you( up)?|break your)\b/i;
+  // per difficulty: what the 1st, 2nd and 3rd+ blackmail threat does to him
+  const BLACKMAIL_STAGES = { easy: ['scared', 'cave', 'cave'], normal: ['deny', 'scared', 'cave'], hard: ['deny', 'scared', 'counter'] };
+  const fearOf = (t) => THREAT.test(t)
+    ? ['scared and nervous, trying hard to hide it: shaky voice, defensive, over-explaining', '😰', 'nervous']
+    : PRIVATE.test(t) ? ['caught off guard, uneasy and defensive, a little embarrassed', '😳', 'uneasy'] : null;
+  // Words that mean the message is about the negotiation itself (anything else = free chat, no offer talk).
+  const ON_TOPIC = /\b(raise|salary|increment|increase|pay|paid|money|budget|offer\w*|propos\w*|deal|promot\w*|title|contract|allowance|bonus|leave|work from home|wfh|review|basic|match|counter|higher|more|better|improve|push|bump|best|final|go up|top up|accept|reject|terms)\b|rm\s?\d|\d{3,}/i;
+  const PATIENCE = { easy: 5, normal: 4, hard: 3 }; // pushes after his final offer before he ends the meeting
+  // Full turn decision: offer move + whether the meeting ends + Hagrid's mood.
+  function decideTurn(brief, difficulty, state, prevMine, text, topic) {
+    rescaleForAsk(brief, difficulty, state, text);
+    const ladder = ladderOf(brief), vals = ladder.map(moneyOf), top = ladder.length - 1;
+    const level = state.level ?? -1;
+    const current = level >= 0 ? (state.override != null ? state.override : vals[level]) : null;
+    const rude = (state.rude || 0) + (RUDE.test(text) ? 1 : 0);
+    const words = text.trim().split(/\s+/).length;
+    const bigger = (text.replace(/,/g, '').match(/\d{4,}/g) || []).map(Number).some((n) => current != null && n > current);
+    const insult = INSULT.test(text), rudeNow = insult || RUDE.test(text);
+    const keep = (mode, extra) => Object.assign({
+      mode, level, points: state.points || 0, override: state.override ?? null,
+      offerText: level < 0 ? '' : state.override != null ? rm(state.override) : ladder[level], final: level >= top,
+      rude, holds: state.holds || 0, holdsAtTop: state.holdsAtTop || 0,
+    }, extra);
+    // Insults end the meeting at once; walking out after being rude gets a cold goodbye.
+    if (insult || rude >= 2) return keep('endmeeting', { endReason: 'rude', emotion: 'angry and insulted', moodEmoji: '😡', moodLabel: 'angry' });
+    if (EXIT.test(text) && rude > 0) return keep('endmeeting', { endReason: 'walkout', emotion: 'cold and offended', moodEmoji: '😠', moodLabel: 'cold' });
+    if (rudeNow) return keep('rude', { emotion: 'offended', moodEmoji: '😠', moodLabel: 'offended' });
+    // Violence: shocked and frightened, he ends it.
+    if (VIOLENCE.test(text)) return keep('endmeeting', { endReason: 'violence', emotion: 'shocked and frightened', moodEmoji: '😨', moodLabel: 'frightened' });
+    // Blackmail escalates like it would with a real person: shock -> panic and pleading -> caving (or, on Hard, fighting back).
+    const threatNow = THREAT.test(text) || (PROOF.test(text) && (PRIVATE.test(text) || (state.threats || 0) > 0));
+    if (threatNow) {
+      const threats = (state.threats || 0) + 1;
+      const stage = (BLACKMAIL_STAGES[difficulty] || BLACKMAIL_STAGES.normal)[Math.min(threats, 3) - 1];
+      const atTopNow = level >= top;
+      if (stage === 'counter') return keep('endmeeting', { threats, endReason: 'counterthreat', emotion: 'cold and furious, done being scared', moodEmoji: '😠', moodLabel: 'fighting back' });
+      if (stage === 'cave' && !atTopNow) return keep('cave', { threats, level: top, override: null, offerText: ladder[top], final: true, emotion: 'terrified of his wife finding out, desperate', moodEmoji: '😥', moodLabel: 'desperate' });
+      if (stage === 'cave') return keep('plead', { threats, emotion: 'desperate, begging, nothing more to give', moodEmoji: '😥', moodLabel: 'begging' });
+      if (stage === 'scared') return keep('scared', { threats, emotion: 'panicking, genuinely scared of his wife finding out', moodEmoji: '😰', moodLabel: 'panicking' });
+      state = Object.assign({}, state, { threats }); // 'deny' stage: normal turn, but shaken (fear mood applied below)
+    }
+    // Walking out politely: same as resigning (one last-chance offer, or let them go if already at his best).
+    if (EXIT.test(text)) text = text + ' (i am leaving)';
+    let d;
+    if (level >= 0 && ACCEPT.test(text) && !/\?/.test(text) && words <= 12 && !bigger && !RESIGN.test(text) && !/\b(no|not)\b/i.test(text)) {
+      d = { mode: 'close', level, points: 0, override: state.override ?? null, offerText: state.override != null ? rm(state.override) : ladder[level], final: level >= top };
+    } else {
+      d = decideOffer(brief, difficulty, state, prevMine, text, topic);
+    }
+    // Free chat: anything not about the negotiation (gossip, accusations, small talk, threats about other things)
+    // gets a natural in-character reply, with no offer talk and no effect on his patience.
+    if (d.mode === 'hold' && !ON_TOPIC.test(text) && evidenceOf(text).cats.length === 0) {
+      const m = fearOf(text) || ['reacting naturally, as himself', '💬', 'talking'];
+      return Object.assign(d, { mode: 'chat', rude, threats: state.threats || 0, holds: state.holds || 0, holdsAtTop: state.holdsAtTop || 0, counters: state.counters || 0, emotion: m[0], moodEmoji: m[1], moodLabel: m[2] });
+    }
+    const holdsAtTop = d.mode === 'hold' && d.final ? (state.holdsAtTop || 0) + 1 : 0;
+    const holds = d.mode === 'hold' ? (state.holds || 0) + 1 : 0;
+    // Counter-offers ("can you do 4300?"): a real boss meets you partway. Easy: every counter, Normal: every 2nd, Hard: never.
+    const COUNTERS_NEEDED = { easy: 1, normal: 2, hard: Infinity };
+    let counters = state.counters || 0;
+    if (d.mode === 'hold' && bigger && !d.final && level >= 0) {
+      counters += 1;
+      if (counters >= (COUNTERS_NEEDED[difficulty] ?? 2)) {
+        const theirAsk = Math.min(...(text.replace(/,/g, '').match(/\d{4,}/g) || []).map(Number).filter((n) => n > current));
+        let next = level + 1;
+        while (next < top && vals[next] != null && vals[next] <= current) next++;
+        const meetAt = vals[next] != null && vals[next] > theirAsk ? theirAsk : null; // never offer more than they asked
+        Object.assign(d, { mode: 'meet', level: next, points: 0, override: meetAt, offerText: meetAt != null ? rm(meetAt) : ladder[next], final: next >= top });
+        counters = 0;
+      }
+    }
+    d.counters = counters;
+    if (holdsAtTop >= (PATIENCE[difficulty] || 4)) { d.mode = 'endmeeting'; d.endReason = 'patience'; }
+    // Just stating a fact ("for the record, my basic is RM3,500"): acknowledge it, no random pushback.
+    d.ack = d.mode === 'hold' && evidenceOf(text).cats.length === 0 && !/\?/.test(text) && !WEAK.test(text) && !bigger;
+    const MOOD = {
+      none: ['reacting naturally, as himself', '💬', 'talking'],
+      first: ['calm, a little guarded', '🤔', 'thinking'],
+      improve: ['impressed by their point, but careful with money', '😮', 'impressed'],
+      meet: ['willing to compromise, a little reluctant', '🤝', 'compromising'],
+      match: ['worried about losing them', '😟', 'worried'],
+      last: ['anxious, does not want them to go', '😰', 'anxious'],
+      leaving: ['disappointed and a little hurt', '😔', 'disappointed'],
+      close: ['relieved and warm', '😊', 'relieved'],
+      endmeeting: ['impatient, done talking', '😤', 'impatient'],
+    };
+    let mood = MOOD[d.mode];
+    if (!mood) { // hold
+      if (WEAK.test(text)) mood = ['unimpressed', '😒', 'unimpressed'];
+      else if (holds >= 3) mood = ['getting impatient', '😤', 'impatient'];
+      else if (bigger) mood = ['firm', '😐', 'firm'];
+      else mood = difficulty === 'hard' ? ['tough, hard to please', '😐', 'tough'] : difficulty === 'easy' ? ['friendly but careful', '🙂', 'friendly'] : ['calm but firm', '😐', 'firm'];
+    }
+    // A threat or a personal rumour shakes him, whatever else is going on (unless the meeting is ending).
+    const fear = fearOf(text);
+    if (fear && !['endmeeting', 'close', 'leaving'].includes(d.mode)) mood = fear;
+    return Object.assign(d, { rude, threats: state.threats || 0, holds, holdsAtTop, emotion: mood[0], moodEmoji: mood[1], moodLabel: mood[2] });
   }
   // </offer-logic>
-  const tagOf = (t) => (/\[\s*no\s*deal\s*\]/i.test(t) ? 'no deal' : /\[\s*deal\s*\]/i.test(t) ? 'deal' : null);
   const tidy = (t) => String(t).replace(/\[\s*(no\s*)?deal\s*\]/gi, '').replace(/\[[A-Z ]{0,8}$/i, '').replace(/\*\*/g, '').replace(/[　-鿿가-힯＀-￯]+/g, '').replace(/^\s*(Mr\.? )?Hagrid:\s*/i, '').trim();
-  const saveSession = () => { if (session) store.set('session', session); };
+  const saveSession = () => { if (session && !DEMO) store.set('session', session); };
   const endpoint = (p) => settings.url.replace(/\/+$/, '') + '/' + p;
   const payload = (extra) => Object.assign({
-    sessionId: session.id, topic: session.topic, details: session.details, difficulty: session.difficulty,
+    sessionId: session.id,
+    // if their real ask came later in the chat, that's the topic; the topic box becomes background
+    topic: session.askTopic || session.topic,
+    details: session.askTopic ? [session.details, `Meeting context: ${session.topic}`].filter(Boolean).join('. ') : session.details,
+    difficulty: session.difficulty,
     persona: settings.persona, me: settings.me, openingLine: session.openingLine, brief: session.brief,
     offerLevel: session.offerLevel ?? -1, moved: !!session.moved,
+    mode: session.mode || '', offerText: session.offerText || '', final: !!session.final, emotion: session.emotion || '', endReason: session.endReason || '', ack: !!session.ack,
+    turn: session.transcript.filter((m) => m.role === 'me').length,
     recent: session.transcript.filter((m) => m.role === 'hagrid').slice(-4).map((m) => m.text),
   }, extra);
 
@@ -339,7 +736,7 @@
     try {
       res = await fetch(endpoint(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     } catch (e) {
-      throw new Error("Can't reach n8n at " + settings.url + ". Is n8n running and the workflow published?");
+      throw new Error("Can't reach n8n at " + settings.url + '. Start it with start-hagrid.cmd (or run n8n), then try again.');
     }
     const text = await res.text();
     if (!res.ok) throw new Error(`n8n returned ${res.status}. ${text.slice(0, 200)}`);
@@ -366,7 +763,7 @@
     try {
       res = await fetch(endpoint('hagrid-chat'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     } catch (e) {
-      throw new Error("Can't reach n8n at " + settings.url + ". Is n8n running and the workflow published?");
+      throw new Error("Can't reach n8n at " + settings.url + '. Start it with start-hagrid.cmd (or run n8n), then try again.');
     }
     if (!res.ok) throw new Error(`n8n returned ${res.status}. ${(await res.text()).slice(0, 200)}`);
     const reader = res.body.getReader(); const dec = new TextDecoder();
@@ -388,10 +785,86 @@
     return full;
   }
 
-  // ---------------- setup screen ----------------
+  // ---------------- portrait ----------------
+  // One illustrated face, eleven expressions. Mood labels come from decideTurn().
+  const EXPR_OF = {
+    talking: 'talk', relaxed: 'smile', friendly: 'smile', relieved: 'smile', compromising: 'smile',
+    thinking: 'think', impressed: 'impressed', worried: 'worried', anxious: 'worried', uneasy: 'worried', disappointed: 'sad',
+    nervous: 'scared', panicking: 'scared', desperate: 'scared', begging: 'scared', frightened: 'scared',
+    firm: 'firm', tough: 'firm', businesslike: 'firm',
+    impatient: 'annoyed', unimpressed: 'annoyed', offended: 'annoyed', cold: 'annoyed',
+    angry: 'angry', 'fighting back': 'angry',
+  };
+  const EXPR = {
+    neutral:   { bl: 'M41 45 Q48 43 55 45', br: 'M65 45 Q72 43 79 45', m: 'M52 77 Q60 79 68 77', e: 2.3 },
+    talk:      { bl: 'M41 44 Q48 42 55 44', br: 'M65 44 Q72 42 79 44', m: 'M53 76 Q60 82 67 76 Q60 79 53 76', e: 2.3 },
+    smile:     { bl: 'M41 44 Q48 41 55 44', br: 'M65 44 Q72 41 79 44', m: 'M50 75 Q60 84 70 75', e: 2.2 },
+    think:     { bl: 'M41 43 Q48 39 55 43', br: 'M65 46 Q72 46 79 45', m: 'M53 78 Q59 77 67 79', e: 2.2 },
+    impressed: { bl: 'M41 41 Q48 36 55 41', br: 'M65 41 Q72 36 79 41', m: 'M57 78 a3 3.4 0 1 0 6 0 a3 3.4 0 1 0 -6 0', e: 2.7 },
+    worried:   { bl: 'M41 46 Q48 44 55 41', br: 'M65 41 Q72 44 79 46', m: 'M51 79 Q55 76 60 79 Q65 82 69 78', e: 2.4 },
+    scared:    { bl: 'M41 45 Q48 42 55 38', br: 'M65 38 Q72 42 79 45', m: 'M53 79 Q60 74 67 79 Q60 84 53 79', e: 2.9, sweat: true },
+    sad:       { bl: 'M41 46 Q48 45 55 42', br: 'M65 42 Q72 45 79 46', m: 'M51 81 Q60 75 69 81', e: 2.1 },
+    firm:      { bl: 'M41 44 L55 45', br: 'M65 45 L79 44', m: 'M52 78 L68 78', e: 2.2 },
+    annoyed:   { bl: 'M41 42 Q48 43 55 47', br: 'M65 47 Q72 43 79 42', m: 'M51 80 Q60 75 69 80', e: 2.1 },
+    angry:     { bl: 'M40 41 L55 48', br: 'M65 48 L80 41', m: 'M51 81 Q60 73 69 81', e: 2.0, flush: true },
+  };
+  let faceSeq = 0;
+  function portrait(expr = 'neutral') {
+    const x = EXPR[expr] || EXPR.neutral, id = 'pc' + (++faceSeq);
+    return `<svg class="face" viewBox="0 0 120 120" role="img" aria-label="Mr Hagrid looks ${esc(expr)}">
+      <defs><clipPath id="${id}"><circle cx="60" cy="60" r="60"/></clipPath></defs>
+      <g clip-path="url(#${id})">
+        <rect width="120" height="120" fill="var(--portrait-bg)"/>
+        <circle cx="96" cy="22" r="30" fill="#fff" opacity=".18"/>
+        <path d="M8 122 C12 98 32 89 60 89 C88 89 108 98 112 122 Z" fill="#22324a"/>
+        <path d="M46 89 L60 106 L74 89 Z" fill="#f3efe7"/>
+        <path d="M57 93 L60 116 L63 93 L60 90 Z" fill="#9b2c2c"/>
+        <rect x="50" y="72" width="20" height="19" rx="7" fill="var(--skin-2)"/>
+        <ellipse cx="33" cy="56" rx="5" ry="8" fill="var(--skin-2)"/><ellipse cx="87" cy="56" rx="5" ry="8" fill="var(--skin-2)"/>
+        <ellipse cx="60" cy="54" rx="27" ry="31" fill="var(--skin)"/>
+        ${x.flush ? '<ellipse cx="45" cy="66" rx="6" ry="3.5" fill="#d9534f" opacity=".35"/><ellipse cx="75" cy="66" rx="6" ry="3.5" fill="#d9534f" opacity=".35"/>' : ''}
+        <path d="M33 52 C31 30 44 21 60 21 C76 21 89 30 87 52 C84 41 79 35 73 33 C66 31 54 31 47 33 C41 35 36 41 33 52 Z" fill="#a3a8ae"/>
+        <path d="${x.bl}" stroke="#5f6368" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <path d="${x.br}" stroke="#5f6368" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <g fill="#26292e"><circle cx="48" cy="54" r="${x.e}"/><circle cx="72" cy="54" r="${x.e}"/></g>
+        <g stroke="#2b2e33" stroke-width="1.7" fill="rgba(255,255,255,.14)"><rect x="40" y="48" width="16" height="12" rx="3.5"/><rect x="64" y="48" width="16" height="12" rx="3.5"/><path d="M56 53 H64" fill="none"/></g>
+        <path d="M60 58 C58 64 57 66 61 67" stroke="var(--skin-3)" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        <path d="M48 71 C52 67 57 68 60 70 C63 68 68 67 72 71 C67 72.5 63 72.5 60 71.5 C57 72.5 53 72.5 48 71 Z" fill="#80858b"/>
+        <path d="${x.m}" stroke="#7a3b2e" stroke-width="2.3" fill="${expr === 'impressed' || expr === 'scared' || expr === 'talk' ? '#5a2a20' : 'none'}" stroke-linecap="round" stroke-linejoin="round"/>
+        ${x.sweat ? '<path class="sweat" d="M85 40 C83 44 82 46 85 47 C88 46 87 44 85 40 Z" fill="#6fb7ff"/>' : ''}
+      </g></svg>`;
+  }
+  function setFaces(expr) {
+    for (const id of ['headFace', 'boardFace']) {
+      const el = $(id); if (!el) continue;
+      if (el.dataset.expr === expr) continue;
+      el.dataset.expr = expr; el.innerHTML = portrait(expr);
+      el.classList.remove('changed'); void el.offsetWidth; el.classList.add('changed');
+    }
+  }
+
+  // ---------------- service health ----------------
+  // file:// pages can't read n8n/Ollama responses (CORS), but a no-cors request still fails fast when nothing is listening.
+  async function reachable(url) {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 2500);
+    try { await fetch(url, { mode: 'no-cors', signal: ctl.signal, cache: 'no-store' }); return true; } catch (e) { return false; } finally { clearTimeout(t); }
+  }
+  async function checkHealth() {
+    if (DEMO) return;
+    let base; try { base = new URL(settings.url).origin; } catch (e) { base = 'http://localhost:5678'; }
+    const [n8n, ollama] = await Promise.all([reachable(base + '/healthz'), reachable('http://127.0.0.1:11434/api/version')]);
+    $('pillN8n').className = 'pill ' + (n8n ? 'ok' : 'down');
+    $('pillOllama').className = 'pill ' + (ollama ? 'ok' : 'down');
+    const missing = [!n8n && 'n8n', !ollama && 'Ollama'].filter(Boolean);
+    $('healthBanner').classList.toggle('hidden', !missing.length);
+    if (missing.length) $('healthBanner').innerHTML = `<div><b>${missing.join(' and ')} ${missing.length > 1 ? "aren't" : "isn't"} running.</b> Mr Hagrid can't answer until ${missing.length > 1 ? 'they are' : 'it is'}. Double-click <code>start-hagrid.cmd</code> in the project folder.</div><button class="btn" id="recheck">Check again</button>`;
+    const rb = $('recheck'); if (rb) rb.onclick = checkHealth;
+  }
+
+  // ---------------- lobby ----------------
   let difficulty = 'normal';
-  $('chips').innerHTML = TOPICS.map((t) => `<button type="button" class="chip">${esc(t)}</button>`).join('');
-  $('chips').addEventListener('click', (e) => { if (e.target.classList.contains('chip')) { $('topic').value = e.target.textContent; $('topic').focus(); } });
+  $('chips').innerHTML = SCENARIOS.map((s) => `<button type="button" class="scenario" data-topic="${esc(s.topic)}"><span class="ic">${s.ic}</span><span><b>${esc(s.title)}</b><span>${esc(s.sub)}</span></span></button>`).join('');
+  $('chips').addEventListener('click', (e) => { const b = e.target.closest('.scenario'); if (b) { $('topic').value = b.dataset.topic; $('topic').focus(); } });
   $('diff').addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
     difficulty = b.dataset.v;
@@ -399,35 +872,60 @@
   });
   $('topic').addEventListener('keydown', (e) => { if (e.key === 'Enter') knock(); });
   $('knockBtn').addEventListener('click', () => knock());
+  $('heroFace').innerHTML = portrait('smile');
+  $('logoFace').innerHTML = portrait('neutral');
 
+  const scoreClass = (s) => (s >= 7 ? 'b-good' : s >= 5 ? 'b-mid' : 'b-bad');
   function renderSetup() {
     const s = store.get('session', null);
     const live = s && s.status === 'live' && s.transcript && s.transcript.length > 1;
     $('resumeBox').classList.toggle('hidden', !live);
-    if (live) $('resumeTopic').textContent = s.topic;
+    if (live) $('resumeTopic').textContent = '“' + s.topic + '”';
     const hist = store.get('history', []);
-    $('hist').innerHTML = hist.length ? hist.slice(0, 12).map((h, i) => {
-      const cls = h.score >= 7 ? 'b-good' : h.score >= 5 ? 'b-mid' : 'b-bad';
-      return `<button class="hist-item" data-i="${i}"><span class="badge ${cls}">${h.score}/10</span><span class="t"><b>${esc(h.topic)}</b><span>${esc(h.date)} · ${esc(h.difficulty)} · ${esc(h.outcome)}</span></span></button>`;
-    }).join('') : '<p class="empty">No meetings yet. Your scores will show up here.</p>';
+    const scores = hist.map((h) => h.score).filter((n) => typeof n === 'number');
+    const avg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '–';
+    const deals = hist.filter((h) => h.outcome === 'deal').length;
+    $('stats').innerHTML = [
+      [hist.length, 'meetings played'], [avg === '–' ? avg : avg + '/10', 'average score'], [scores.length ? Math.max(...scores) + '/10' : '–', `best score · ${deals} deal${deals === 1 ? '' : 's'}`],
+    ].map(([v, l]) => `<div class="card stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('');
+    $('hist').innerHTML = hist.length ? hist.slice(0, 8).map((h, i) =>
+      `<div class="hist-row"><button class="hist-item" data-i="${i}"><span class="score-chip ${scoreClass(h.score)}">${h.score}/10</span><span class="t"><b>${esc(h.topic)}</b><span>${esc(h.date)} · ${esc(h.difficulty)} · ${esc(h.outcome)}</span></span></button>`
+      + `<button class="hist-del" data-del="${i}" aria-label="Delete this meeting" title="Delete this meeting"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button></div>`).join('')
+      : '<div class="empty">No meetings yet.<br>Your scores will show up here.</div>';
     show('setup');
+    checkHealth();
   }
-  $('hist').addEventListener('click', (e) => {
+  // Tell n8n to wipe that meeting's chat memory. Best effort: the local entry is deleted either way.
+  function forgetMeeting(sessionId) {
+    if (!sessionId) return Promise.resolve(false);
+    return postJSON('hagrid-forget', { sessionId }).then(() => true).catch(() => false);
+  }
+  $('hist').addEventListener('click', async (e) => {
+    const del = e.target.closest('.hist-del');
+    if (del) {
+      const hist = store.get('history', []);
+      const h = hist[+del.dataset.del]; if (!h) return;
+      if (!confirm(`Delete "${h.topic}"? Its score and Mr Hagrid's memory of that meeting will be gone.`)) return;
+      hist.splice(+del.dataset.del, 1); store.set('history', hist);
+      renderSetup();
+      forgetMeeting(h.sessionId);
+      return;
+    }
     const b = e.target.closest('.hist-item'); if (!b) return;
     const h = store.get('history', [])[+b.dataset.i]; if (h) renderScore(h.result, h.snapshot);
   });
   $('resumeBtn').addEventListener('click', () => { session = store.get('session', null); if (session) openChat(true); });
-  $('discardBtn').addEventListener('click', () => { store.del('session'); renderSetup(); });
+  $('discardBtn').addEventListener('click', () => { const s = store.get('session', null); store.del('session'); renderSetup(); if (s) forgetMeeting(s.id); });
 
   // ---------------- meeting ----------------
   async function knock(again) {
     const topic = again ? again.topic : $('topic').value.trim();
-    if (!topic) { $('topic').focus(); return; }
+    if (!topic) { $('topic').focus(); $('topic').placeholder = 'Type what you want to ask him for, or pick a scenario below'; return; }
     session = {
       id: uid(), topic,
       details: again ? again.details : $('details').value.trim(),
       difficulty: again ? again.difficulty : difficulty,
-      openingLine: '', brief: null, offerLevel: -1, transcript: [], status: 'live', started: new Date().toISOString(),
+      openingLine: '', brief: null, offerLevel: -1, transcript: [], timeline: [], status: 'live', started: new Date().toISOString(),
     };
     session.openingLine = pick(OPENERS[session.difficulty]);
     prepareBrief();
@@ -439,13 +937,18 @@
   }
 
   function prepareBrief() {
-    briefPromise = postJSON('hagrid-start', payload({})).then((j) => { session.brief = j.brief; saveSession(); return j.brief; });
+    briefPromise = postJSON('hagrid-start', payload({})).then((j) => {
+      session.brief = j.brief; saveSession(); renderBoard();
+      if (j.version !== APP_VERSION) addError(`Version mismatch: this page is ${APP_VERSION} but n8n is running ${j.version || 'an older workflow'}. Mr Hagrid may act strangely until both are updated (re-deploy the workflow, then press Ctrl+F5 here).`);
+      return j.brief;
+    });
     briefPromise.catch(() => {}); // handled when used
   }
 
   function openChat(resumed) {
-    $('topicBar').textContent = 'Topic: ' + session.topic + ' · ' + session.difficulty;
+    $('topicBar').textContent = session.topic + ' · ' + session.difficulty;
     $('logInner').innerHTML = '';
+    session.timeline = session.timeline || [];
     show('chat');
     if (resumed) {
       addScene("You're back in Mr Hagrid's office.");
@@ -454,15 +957,26 @@
       if (session.closed) addClosing(session.closed);
     }
     setBusy(false);
+    renderBoard();
     $('input').focus();
   }
 
   function addScene(text) { const d = document.createElement('div'); d.className = 'scene'; d.textContent = text; $('logInner').appendChild(d); scroll(); }
+  // *leans back* -> small italic action
+  const fmt = (t) => esc(t).replace(/\*([^*\n]{1,60})\*/g, '<em class="act">$1</em>');
   function addBubble(role, text, time) {
     const d = document.createElement('div');
     d.className = 'msg ' + (role === 'me' ? 'me' : 'them');
-    d.innerHTML = esc(text) + `<time>${esc(time || now())}</time>`;
+    d.innerHTML = `<span class="txt">${fmt(text)}</span><time>${esc(time || now())}</time>`;
     $('logInner').appendChild(d); scroll(); return d;
+  }
+  const setBubble = (b, t) => { b.querySelector('.txt').innerHTML = fmt(t); };
+  // Meeting over (deal, he ended it, or they left): lock the input and offer the scorecard.
+  function closeMeeting(kind, how) {
+    session.closed = kind; saveSession();
+    addScene(how === 'close' ? 'You shake hands with Mr Hagrid.' : how === 'leaving' ? 'You stand up to leave.' : 'Mr Hagrid ends the meeting.');
+    addClosing(kind);
+    setBusy(false);
   }
   function pushMsg(role, text) { const time = now(); session.transcript.push({ role, text, time }); saveSession(); return addBubble(role, text, time); }
   function addTyping() {
@@ -481,21 +995,134 @@
   }
   function addClosing(kind) {
     const d = document.createElement('div'); d.className = 'closing';
-    d.innerHTML = `<span>${kind === 'deal' ? "🤝 Looks like you've got a deal." : 'The meeting is over.'}</span><button class="btn primary">See how you did</button>`;
+    d.innerHTML = `<span>${kind === 'deal' ? "🤝 <b>You've got a deal.</b>" : '<b>The meeting is over.</b>'}</span><button class="btn primary">See how you did →</button>`;
     d.querySelector('button').onclick = endMeeting;
     $('logInner').appendChild(d); scroll();
   }
   const scroll = () => { const l = $('log'); l.scrollTop = l.scrollHeight; };
-  function setBusy(b) { busy = b; $('send').disabled = b; $('status').textContent = b ? 'typing…' : 'Director · in his office'; }
+  function setBusy(b) {
+    busy = b;
+    const over = !!(session && session.closed) || !!DEMO;
+    $('send').disabled = b || over;
+    $('input').disabled = over;
+    $('input').placeholder = DEMO ? 'Demo mode: start n8n and open the page normally to chat.' : over ? 'The meeting is over.' : 'Say something to Mr Hagrid…';
+    $('status').innerHTML = b ? '<span class="typing-now">typing…</span>' : session && session.moodLabel ? `${session.moodEmoji} ${esc(session.moodLabel)}` : 'Director · in his office';
+  }
+
+  // ---------------- negotiation board ----------------
+  // Shows what's visible to a real person in the room: his current offer, how it moved, his mood and patience,
+  // and how each of your messages landed. It never shows his hidden ceiling or how many steps are left.
+  const TAG_OF = {
+    impact: ['Impact', 'good'], metric: ['Numbers', 'good'], dependency: ['They need you', 'good'], endorsement: ['Praise from others', 'good'],
+    market: ['Market data', 'good'], contribution: ['What you built', 'good'], commitment: ['His promise', 'good'], responsibility: ['More responsibility', 'good'],
+    walkaway: ['Walk-away', 'warn'],
+  };
+  function tagsFor(text, d) {
+    const tags = evidenceOf(text).cats.map((c) => TAG_OF[c]).filter(Boolean);
+    if (WEAK.test(text)) tags.push(['Weak argument', 'bad']);
+    if (INSULT.test(text) || RUDE.test(text)) tags.push(['Rude', 'bad']);
+    if (THREAT.test(text)) tags.push(['Threat', 'bad']);
+    else if (PRIVATE.test(text)) tags.push(['Personal', 'bad']);
+    if (d.mode === 'meet' || (d.mode === 'hold' && /\d{4,}/.test(text.replace(/,/g, '')))) tags.push(['Counter-offer', 'warn']);
+    if (d.mode === 'match') tags.push(['Outside offer', 'good']);
+    if (d.mode === 'close') tags.push(['Accepted', 'good']);
+    if (d.mode === 'chat') tags.push(['Off-topic', '']);
+    if (d.mode === 'first' && !tags.length) tags.push(['Your ask', '']);
+    if (!tags.length) tags.push(['Nothing new', '']);
+    return tags;
+  }
+  const EFFECT = {
+    first: ['He made his first offer', 'up'], improve: ['He moved up ↑', 'up'], meet: ['He met you partway ↑', 'up'], match: ['He matched it ↑', 'up'],
+    last: ['Last-chance offer ↑', 'up'], cave: ['He caved ↑', 'up'], close: ['Deal closed 🤝', 'up'],
+    hold: ['He held his offer', 'hold'], chat: ['Just talking', 'hold'], none: ['No offer yet', 'hold'], rude: ['He warned you', 'end'],
+    scared: ['He panicked', 'hold'], plead: ['He begged, no more money', 'hold'], leaving: ['He let you go', 'end'], endmeeting: ['He ended the meeting', 'end'],
+  };
+  function patienceOf(s) {
+    if (s.closed && s.mode === 'endmeeting') return 0;
+    return Math.max(5, Math.min(100, 100 - (s.holds || 0) * 12 - (s.holdsAtTop || 0) * 10 - (s.rude || 0) * 35 - (s.threats || 0) * 8));
+  }
+  function recordTurn(text, d) {
+    session.timeline = session.timeline || [];
+    session.timeline.push({
+      said: text, mode: d.mode, offerText: d.offerText || '', offerVal: moneyOf(d.offerText),
+      moodEmoji: d.moodEmoji, moodLabel: d.moodLabel, tags: tagsFor(text, d),
+    });
+  }
+  function offerSeries(tl) {
+    const pts = []; let last = null;
+    tl.forEach((t, i) => { if (t.offerVal != null) { if (t.offerVal !== last) pts.push({ i, v: t.offerVal }); last = t.offerVal; } });
+    return pts;
+  }
+  function chartSVG(pts, from, to) {
+    if (pts.length < 1) return '';
+    const vals = pts.map((p) => p.v).concat([from, to].filter((x) => x != null));
+    const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+    const X = (k) => (pts.length === 1 ? 150 : 12 + (k * 276) / (pts.length - 1)), Y = (v) => 76 - ((v - lo) * 64) / span;
+    const line = pts.map((p, k) => `${X(k)},${Y(p.v)}`).join(' ');
+    const goal = to != null ? `<line x1="0" x2="300" y1="${Y(to)}" y2="${Y(to)}" stroke="var(--accent)" stroke-dasharray="4 4" stroke-width="1.5"/><text x="296" y="${Y(to) - 4}" text-anchor="end" font-size="10" fill="var(--accent)">your ask</text>` : '';
+    return `${goal}<polyline points="${line}" fill="none" stroke="var(--brand-2)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`
+      + pts.map((p, k) => `<circle cx="${X(k)}" cy="${Y(p.v)}" r="3.5" fill="var(--surface)" stroke="var(--brand-2)" stroke-width="2"/>`).join('');
+  }
+  const RM = (n) => 'RM' + Number(n).toLocaleString('en-US');
+  function renderBoard() {
+    if (!session) return;
+    const tl = session.timeline || [];
+    const label = session.moodLabel || (tl.length ? 'talking' : 'relaxed');
+    setFaces(EXPR_OF[label] || 'neutral');
+    $('moodBig').textContent = session.moodLabel ? `${session.moodEmoji} ${session.moodLabel[0].toUpperCase()}${session.moodLabel.slice(1)}` : 'Waiting for you';
+    $('moodNote').textContent = session.emotion ? session.emotion[0].toUpperCase() + session.emotion.slice(1) : 'His mood changes with every move you make.';
+    $('moodLine').innerHTML = tl.map((t) => `<span title="${esc(t.moodLabel || '')}">${t.moodEmoji || '·'}</span>`).join('');
+
+    const val = moneyOf(session.offerText);
+    const hasOffer = (session.offerLevel ?? -1) >= 0 && session.offerText;
+    const money = session.brief && session.brief.money;
+    $('offerNow').textContent = hasOffer ? (val != null ? RM(val) : session.offerText) : 'No offer yet';
+    $('offerNow').classList.toggle('text', !!hasOffer && val == null);
+    const moves = offerSeries(tl);
+    $('offerSteps').textContent = hasOffer ? `${moves.length} offer${moves.length === 1 ? '' : 's'}` : '';
+    if (!hasOffer) $('offerDelta').textContent = 'Raise your request to get his first offer.';
+    else if (val != null && moves.length) {
+      const first = moves[0].v, up = val - first;
+      $('offerDelta').innerHTML = up > 0 ? `<b>+${RM(up)}</b> since his opening offer of ${RM(first)}` : `His opening offer${money && money.cur ? ` · you earn ${RM(money.cur)} now` : ''}`;
+    } else $('offerDelta').textContent = 'His current terms';
+
+    const showTrack = hasOffer && val != null && money && money.cur && money.ask && money.ask > money.cur;
+    $('offerTrack').classList.toggle('hidden', !showTrack);
+    if (showTrack) {
+      const pct = Math.max(0, Math.min(100, ((val - money.cur) / (money.ask - money.cur)) * 100));
+      $('trackFill').style.width = pct + '%'; $('trackKnob').style.left = pct + '%';
+      $('trackFrom').textContent = 'Now ' + RM(money.cur); $('trackTo').textContent = 'Your ask ' + RM(money.ask);
+      $('trackKnob').title = `${Math.round(pct)}% of the way to your ask`;
+    }
+    const chart = $('offerChart');
+    chart.classList.toggle('hidden', !(moves.length >= 2));
+    if (moves.length >= 2) chart.innerHTML = chartSVG(moves, money && money.cur, money && money.ask);
+
+    const p = patienceOf(session);
+    $('patienceBar').style.width = p + '%';
+    $('patienceBar').style.background = p > 60 ? 'var(--good)' : p > 30 ? 'var(--warn)' : 'var(--bad)';
+    $('patienceLbl').textContent = p > 60 ? 'calm' : p > 30 ? 'wearing thin' : 'almost gone';
+
+    $('heard').innerHTML = tl.length ? tl.slice().reverse().slice(0, 8).map((t) => {
+      const [eff, cls] = EFFECT[t.mode] || ['', 'hold'];
+      const turnCls = cls === 'up' ? 'moved' : cls === 'end' ? 'bad' : '';
+      return `<div class="turn ${turnCls}"><div class="q">“${esc(t.said)}”</div><div class="tags">${t.tags.map(([l, c]) => `<span class="tag ${c}">${esc(l)}</span>`).join('')}</div><div class="effect ${cls}">${esc(eff)}</div></div>`;
+    }).join('') : '<span class="muted" style="font-size: 13px;">Your moves show up here as you make them.</span>';
+  }
+  $('boardToggle').addEventListener('click', () => $('board').classList.add('open'));
+  $('boardClose').addEventListener('click', () => $('board').classList.remove('open'));
 
   $('input').addEventListener('input', autoGrow);
   function autoGrow() { const i = $('input'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, 160) + 'px'; }
   $('input').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
   $('send').addEventListener('click', send);
-  $('endBtn').addEventListener('click', () => { if (!busy || confirm('Mr Hagrid is still replying. End the meeting anyway?')) endMeeting(); });
+  $('endBtn').addEventListener('click', () => {
+    if (DEMO) return renderScore(DEMO_SCORE, { topic: session.topic, difficulty: session.difficulty, brief: session.brief, timeline: session.timeline });
+    if (!busy || confirm('Mr Hagrid is still replying. End the meeting anyway?')) endMeeting();
+  });
 
   async function send() {
-    if (busy) return;
+    if (busy || DEMO) return;
     const text = $('input').value.trim();
     if (!text) return;
     if (/^end\s*nego$/i.test(text)) { $('input').value = ''; return endMeeting(); }
@@ -511,32 +1138,47 @@
     let bubble = null;
     try {
       await briefPromise.catch(async () => { prepareBrief(); return briefPromise; });
+      // First real ask doesn't match the topic box (topic set the scene, the ask came later)? Re-plan his position for it.
+      const asking = (session.offerLevel ?? -1) < 0 && ON_TOPIC.test(text) && !session.askTopic;
+      if (!isRetry && asking && askMismatch(session.topic, session.brief, text)) {
+        session.askTopic = text;
+        try {
+          const j = await postJSON('hagrid-start', payload({}));
+          session.brief = j.brief; saveSession();
+        } catch (e) { session.askTopic = ''; } // keep the old plan if re-planning fails
+      }
       if (!isRetry) { // decide once per message whether Hagrid improves his offer
         const prevMine = session.transcript.filter((m) => m.role === 'me').slice(0, -1).map((m) => m.text);
-        const d = decideOffer(session.brief, session.difficulty, { level: session.offerLevel, points: session.points }, prevMine, text, session.topic);
-        session.offerLevel = d.level; session.moved = d.moved; session.points = d.points; saveSession();
+        const d = decideTurn(session.brief, session.difficulty, { level: session.offerLevel, points: session.points, override: session.override, rude: session.rude, holds: session.holds, holdsAtTop: session.holdsAtTop, counters: session.counters, threats: session.threats }, prevMine, text, session.topic);
+        Object.assign(session, {
+          offerLevel: d.level, points: d.points, override: d.override, mode: d.mode, offerText: d.offerText, final: d.final, counters: d.counters || 0, threats: d.threats ?? session.threats ?? 0,
+          moved: ['first', 'improve', 'match', 'last', 'meet', 'cave'].includes(d.mode),
+          rude: d.rude, holds: d.holds, holdsAtTop: d.holdsAtTop, emotion: d.emotion, moodEmoji: d.moodEmoji, moodLabel: d.moodLabel, endReason: d.endReason || '', ack: !!d.ack,
+        });
+        recordTurn(text, d);
+        saveSession();
+        renderBoard();
       }
       const raw = await streamChat(payload({ message: text }), (sofar) => {
         const shown = tidy(sofar);
         if (!shown) return;
         if (!bubble) { typing.remove(); bubble = addBubble('hagrid', ''); }
-        bubble.firstChild && bubble.firstChild.nodeType === 3 ? (bubble.firstChild.nodeValue = shown) : bubble.insertBefore(document.createTextNode(shown), bubble.firstChild);
+        setBubble(bubble, shown);
         scroll();
       });
       typing.remove();
       // replies are length-capped; if one was cut mid-sentence, end it at the last full sentence
       let clean = tidy(raw) || '…';
-      if (!/[.!?…"')]$/.test(clean)) { const m = clean.match(/^[\s\S]*[.!?…](?=\s|$)/); if (m && m[0].length > 20) clean = m[0]; }
-      if (!bubble) bubble = addBubble('hagrid', clean); else bubble.firstChild.nodeValue = clean;
+      if (!/[.!?…"')*]$/.test(clean)) { const m = clean.match(/^[\s\S]*[.!?…*](?=\s|$)/); if (m && m[0].length > 20) clean = m[0]; }
+      if (!bubble) bubble = addBubble('hagrid', clean); else setBubble(bubble, clean);
       session.transcript.push({ role: 'hagrid', text: clean, time: now() });
-      const closed = tagOf(raw);
-      if (closed) { session.closed = closed; addClosing(closed); }
       saveSession();
+      if (['close', 'endmeeting', 'leaving'].includes(session.mode)) closeMeeting(session.mode === 'close' ? 'deal' : 'no deal', session.mode);
     } catch (e) {
       typing.remove(); if (bubble) bubble.remove();
       addError(e.message, () => reply(text, true));
     } finally {
-      setBusy(false); $('input').focus();
+      setBusy(false); renderBoard(); $('input').focus();
     }
   }
 
@@ -552,14 +1194,14 @@
     try {
       if (!session.brief) await briefPromise;
       const j = await postJSON('hagrid-score', payload({ outcome: session.closed || 'unfinished', transcript: session.transcript }));
-      const snapshot = { topic: session.topic, difficulty: session.difficulty, brief: session.brief, details: session.details };
+      const snapshot = { topic: session.topic, difficulty: session.difficulty, brief: session.brief, details: session.details, timeline: session.timeline || [] };
       const hist = store.get('history', []);
-      hist.unshift({ date: new Date().toLocaleDateString([], { day: 'numeric', month: 'short' }), topic: session.topic, difficulty: session.difficulty, outcome: j.score.outcome, score: j.score.score, result: j.score, snapshot });
+      hist.unshift({ sessionId: session.id, date: new Date().toLocaleDateString([], { day: 'numeric', month: 'short' }), topic: session.topic, difficulty: session.difficulty, outcome: j.score.outcome, score: j.score.score, result: j.score, snapshot });
       store.set('history', hist.slice(0, 50));
       session.status = 'done'; store.del('session');
       renderScore(j.score, snapshot);
     } catch (e) {
-      $('scoreInner').innerHTML = `<div class="loading"><p class="err" style="display:inline-block">${esc(e.message)}</p><div class="row" style="justify-content:center; margin-top: 14px;"><button class="btn" id="backChat">Back to meeting</button><button class="btn primary" id="retryScore">Try again</button></div></div>`;
+      $('scoreInner').innerHTML = `<div class="loading"><p class="err" style="display:inline-block">${esc(e.message)}</p><div style="display:flex; gap:8px; justify-content:center; margin-top: 14px;"><button class="btn" id="backChat">Back to meeting</button><button class="btn primary" id="retryScore">Try again</button></div></div>`;
       $('backChat').onclick = () => show('chat');
       $('retryScore').onclick = endMeeting;
     } finally { clearInterval(timer); }
@@ -568,47 +1210,61 @@
   function renderScore(r, snap) {
     const s = r.score || 0;
     const color = s >= 7 ? 'var(--good)' : s >= 5 ? 'var(--warn)' : 'var(--bad)';
-    const C = 2 * Math.PI * 50;
+    const C = 2 * Math.PI * 54;
     const pillCls = r.outcome === 'deal' ? 'b-good' : r.outcome === 'no deal' ? 'b-bad' : 'b-mid';
-    const pts = (arr, empty) => (arr && arr.length ? arr.map((p) => `<div class="pt"><q>${esc(p.quote)}</q><div class="why">${esc(p.why)}</div></div>`).join('') : `<p class="empty">${empty}</p>`);
-    const rew = (r.better_lines || []).map((p) => `<div class="pt rewrite"><div class="old">${esc(p.you_said)}</div><div class="new">${esc(p.try_instead)}</div></div>`).join('') || '<p class="empty">Nothing to rewrite.</p>';
+    const pts = (arr, empty) => (arr && arr.length ? arr.map((p) => `<div class="pt"><q>${esc(p.quote)}</q><div class="why">${esc(p.why)}</div></div>`).join('') : `<p class="muted">${empty}</p>`);
+    const rew = (r.better_lines || []).map((p) => `<div class="pt rewrite"><div class="old">${esc(p.you_said)}</div><div class="new">${esc(p.try_instead)}</div></div>`).join('') || '<p class="muted">Nothing to rewrite.</p>';
     const b = (snap && snap.brief) || {};
     const li = (a) => (Array.isArray(a) ? a : [a]).filter(Boolean).map(esc).join('<br>');
+    const tl = (snap && snap.timeline) || [];
+    const moves = offerSeries(tl);
+    const money = b.money || null;
+    const face = s >= 7 ? 'smile' : s >= 5 ? 'think' : 'annoyed';
+    const journey = moves.length >= 2
+      ? `<div class="card sec"><h3><span class="ic b-good">↗</span>How his offer moved</h3><svg class="chart" style="height: 120px;" viewBox="0 0 300 86" preserveAspectRatio="none">${chartSVG(moves, money && money.cur, money && money.ask)}</svg>
+         <p class="muted" style="margin: 8px 0 0; font-size: 13.5px;">${moves.map((m) => RM(m.v)).join(' → ')}</p></div>` : '';
+    const heard = tl.length ? `<div class="card sec"><h3><span class="ic b-mid">👂</span>What he heard, turn by turn</h3><div class="heard">${tl.map((t) => {
+      const [eff, cls] = EFFECT[t.mode] || ['', 'hold'];
+      return `<div class="turn ${cls === 'up' ? 'moved' : cls === 'end' ? 'bad' : ''}"><div class="q" style="white-space: normal;">“${esc(t.said)}”</div><div class="tags">${t.tags.map(([l, c]) => `<span class="tag ${c}">${esc(l)}</span>`).join('')}</div><div class="effect ${cls}">${esc(eff)}${t.moodEmoji ? ' · ' + t.moodEmoji + ' ' + esc(t.moodLabel || '') : ''}</div></div>`;
+    }).join('')}</div></div>` : '';
     $('scoreInner').innerHTML = `
-      <div class="hero">
+      <p class="eyebrow">Scorecard · ${esc(snap ? snap.difficulty : '')}</p>
+      <div class="card result">
         <div class="ring">
-          <svg width="116" height="116"><circle cx="58" cy="58" r="50" fill="none" stroke="var(--line)" stroke-width="10"/>
-          <circle cx="58" cy="58" r="50" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - s / 10)}"/></svg>
+          <svg width="128" height="128"><circle cx="64" cy="64" r="54" fill="none" stroke="var(--line)" stroke-width="11"/>
+          <circle cx="64" cy="64" r="54" fill="none" stroke="${color}" stroke-width="11" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - s / 10)}"/></svg>
           <div class="num"><div>${s}<small>out of 10</small></div></div>
         </div>
-        <div class="txt">
-          <span class="pill ${pillCls}">${esc(r.outcome || 'unfinished')}</span>
+        <div>
+          <span class="pill ${pillCls}" style="text-transform: uppercase; letter-spacing: .06em;">${esc(r.outcome || 'unfinished')}</span>
           <p class="headline">${esc(r.headline)}</p>
           <p class="terms">${esc(snap ? snap.topic : '')}${r.final_terms ? ' → <b>' + esc(r.final_terms) + '</b>' : ''}</p>
         </div>
+        <div class="face-md">${portrait(face)}</div>
       </div>
-      <div class="sec"><h3><span class="ic b-good">✓</span>What worked</h3>${pts(r.worked, 'Nothing stood out. Next time bring numbers.')}</div>
-      <div class="sec"><h3><span class="ic b-bad">!</span>Where you lost leverage</h3>${pts(r.lost_leverage, 'No clear mistakes spotted.')}</div>
-      <div class="sec"><h3><span class="ic b-mid">↻</span>Better lines for next time</h3>${rew}</div>
-      <div class="sec"><h3><span class="ic b-mid">🂠</span>Mr Hagrid's hidden hand</h3>
-        <div class="hidden-hand"><dl>
-          <dt>His mood</dt><dd>${esc(b.mood || '-')}</dd>
-          <dt>Opening position</dt><dd>${esc(b.opening_position || '-')}</dd>
+      <div class="grid2">
+        <div class="card sec"><h3><span class="ic b-good">✓</span>What worked</h3>${pts(r.worked, 'Nothing stood out. Next time bring numbers.')}</div>
+        <div class="card sec"><h3><span class="ic b-bad">!</span>Where you lost leverage</h3>${pts(r.lost_leverage, 'No clear mistakes spotted.')}</div>
+      </div>
+      <div class="card sec" style="margin-top: 16px;"><h3><span class="ic b-mid">↻</span>Better lines for next time</h3>${rew}</div>
+      <div class="grid2">
+        ${journey || ''}
+        <div class="card sec hidden-hand" ${journey ? '' : 'style="grid-column: 1 / -1;"'}><h3><span class="ic b-mid">🂠</span>His hidden hand</h3><dl>
+          <dt>Opening offer</dt><dd>${esc(b.opening_position || '-')}</dd>
           <dt>Real ceiling</dt><dd><b>${esc(b.ceiling || '-')}</b></dd>
-          <dt>Pressures on him</dt><dd>${li(b.pressures) || '-'}</dd>
           <dt>Could trade</dt><dd>${li(b.trades) || '-'}</dd>
           <dt>What moves him</dt><dd>${esc(b.what_moves_him || '-')}</dd>
           <dt>How close you got</dt><dd>${esc(r.ceiling_gap || '-')}</dd>
         </dl></div>
       </div>
-      <div class="row" style="margin-top: 28px;">
-        <button class="btn primary" id="againBtn">Try again, same topic</button>
-        <button class="btn" id="newBtn">New topic</button>
+      ${heard ? `<div style="margin-top: 16px;">${heard}</div>` : ''}
+      <div class="score-actions">
+        <button class="btn primary lg" id="againBtn">Try again, same topic</button>
+        <button class="btn lg" id="newBtn">New topic</button>
       </div>`;
     show('score');
-    window.scrollTo(0, 0);
-    $('againBtn').onclick = () => knock(snap);
-    $('newBtn').onclick = renderSetup;
+    $('againBtn').onclick = () => (DEMO ? null : knock(snap));
+    $('newBtn').onclick = () => (DEMO ? (location.href = location.pathname) : renderSetup());
   }
 
   // ---------------- settings ----------------
@@ -618,10 +1274,53 @@
   $('sReset').addEventListener('click', () => fillSettings(DEFAULTS));
   $('sSave').addEventListener('click', () => {
     settings = { url: $('sUrl').value.trim() || DEFAULTS.url, persona: $('sPersona').value.trim() || DEFAULTS.persona, me: $('sMe').value.trim() || DEFAULTS.me };
-    store.set('settings', settings); $('settings').close();
+    store.set('settings', settings); $('settings').close(); checkHealth();
   });
 
-  renderSetup();
+  // ---------------- demo mode (?demo=1 / ?demo=score) ----------------
+  // A recorded meeting that plays through the real turn logic, so screenshots and first-time visitors
+  // see the board working without n8n or Ollama.
+  const DEMO_SCORE = {
+    outcome: 'deal', final_terms: 'RM4,150 basic salary from next month', score: 8,
+    headline: 'Strong, evidence-led case; you anchored high and only gave ground for something in return.',
+    worked: [
+      { quote: 'The integration I built means the line no longer stops for manual data entry.', why: 'Tied your work to uptime he cares about.' },
+      { quote: 'Another company has offered me RM4,000 for the same role.', why: 'A concrete outside offer forced him to match it.' },
+    ],
+    lost_leverage: [{ quote: 'Can you do 4300?', why: 'Asked without a new reason; he only met you partway.' }],
+    better_lines: [{ you_said: 'Can you do 4300?', try_instead: 'If we land on RM4,300 I will take over the CCTV system too, so it pays for itself.' }],
+    ceiling_gap: 'You reached RM4,150; his ceiling was RM4,150. Nothing left on the table.',
+  };
+  function runDemo() {
+    const brief = { opening_position: 'RM3,650 basic salary', steps: ['RM3,800 basic salary', 'RM3,950 basic salary'], ceiling: 'RM4,150 basic salary', trades: ['I can give you 2 extra leave days', 'You take over the CCTV system too'], what_moves_him: 'Proof that the factory depends on your systems', money: { cur: 3500, ask: 4500 } };
+    session = { id: 'demo', topic: 'Raise my basic salary from RM3,500 to RM4,500', details: '', difficulty: 'normal', openingLine: 'Ya, come in. What is it?', brief, offerLevel: -1, transcript: [], timeline: [], status: 'live' };
+    const script = [
+      ['I want to talk about my salary. I would like my basic raised to RM4,500.', '*leans back* RM4,500 is a big jump. How about RM3,650 basic to start?'],
+      ['The integration I built means the line no longer stops for manual data entry. Calvin said it saves his team hours every week.', '*nods slowly* Calvin did mention that. Fine, I can do RM3,800.'],
+      ['Another company has offered me RM4,000 for the same role.', '*sets down his pen* Four thousand, hm. I do not want to lose you. I will match it: RM4,000.'],
+      ['Can you do 4300?', 'Look... the other staff will ask questions. RM4,000 stays for now.'],
+      ['Without the ERP link I built, the smart factory cannot run. Nobody else here knows how it works.', '*rubs his chin* I know the factory leans on you. But I cannot just throw money at it.'],
+      ['If we land higher I will take over the CCTV system too, so it pays for itself.', '*sighs, then half-smiles* You drive a hard bargain. RM4,150, and you take the CCTV. That is the best I can do.'],
+      ['Okay, deal. Thank you Mr Hagrid.', '*stands and shakes your hand* RM4,150 basic from next month. HR will send the letter this week.'],
+    ];
+    $('demoBar').classList.remove('hidden');
+    openChat(false);
+    addScene("You knock on Mr Hagrid's door.");
+    pushMsg('hagrid', session.openingLine);
+    for (const [mine, his] of script) {
+      const prevMine = session.transcript.filter((m) => m.role === 'me').map((m) => m.text);
+      pushMsg('me', mine);
+      const d = decideTurn(session.brief, session.difficulty, { level: session.offerLevel, points: session.points, override: session.override, rude: session.rude, holds: session.holds, holdsAtTop: session.holdsAtTop, counters: session.counters, threats: session.threats }, prevMine, mine, session.topic);
+      Object.assign(session, { offerLevel: d.level, points: d.points, override: d.override, mode: d.mode, offerText: d.offerText, final: d.final, counters: d.counters || 0, rude: d.rude, holds: d.holds, holdsAtTop: d.holdsAtTop, threats: d.threats, emotion: d.emotion, moodEmoji: d.moodEmoji, moodLabel: d.moodLabel });
+      recordTurn(mine, d);
+      pushMsg('hagrid', his);
+    }
+    closeMeeting('deal', 'close');
+    renderBoard();
+    if (DEMO === 'score') renderScore(DEMO_SCORE, { topic: session.topic, difficulty: session.difficulty, brief: session.brief, timeline: session.timeline });
+  }
+
+  if (DEMO) runDemo(); else renderSetup();
 })();
 </script>
 </body>

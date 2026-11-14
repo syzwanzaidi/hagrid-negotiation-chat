@@ -3,9 +3,18 @@ const fs = require('fs');
 const path = require('path');
 const dir = __dirname;
 const read = (f) => fs.readFileSync(path.join(dir, f), 'utf8');
-const shared = read('shared.js');
-const parse = read('parse.js');
+// usage: node build.js <out.json> [workflowId]
+// VERSION (build/version.txt) is stamped into the workflow AND the HTML, so the UI can warn when n8n is stale.
+const VERSION = read('version.txt').trim();
+const shared = `const VERSION = '${VERSION}';\n` + read('shared.js');
+const parse = `const VERSION = '${VERSION}';\n` + read('parse.js');
 const out = process.argv[2];
+const WORKFLOW_ID = process.argv[3] || 'vaYgPCNzsZcgqt9Q'; // same id = n8n import overwrites in place
+const htmlPath = path.join(dir, '..', 'hagrid-negotiation.html');
+const html = fs.readFileSync(htmlPath, 'utf8');
+const stamped = html.replace(/const APP_VERSION = '[^']*';/, `const APP_VERSION = '${VERSION}';`);
+if (stamped === html && !html.includes(`const APP_VERSION = '${VERSION}';`)) throw new Error('APP_VERSION line not found in HTML');
+if (stamped !== html) fs.writeFileSync(htmlPath, stamped);
 
 const OLLAMA_CRED = { ollamaApi: { id: 'Tcfq99K0zp5JeGYT', name: 'Ollama account' } };
 const OLLAMA_URL = 'http://127.0.0.1:11434/api/chat';
@@ -39,7 +48,7 @@ const sticky = (content, pos, w, h, color) => ({
 });
 
 const nodes = [
-  sticky('## 1. Start meeting\nUI calls **POST /webhook/hagrid-start**. The model secretly decides Hagrid\'s opening, ceiling, pressures and trades (JSON). The UI keeps it hidden and sends it back every turn.', [-40, -440], 980, 300, 5),
+  sticky('## 1. Start meeting\nUI calls **POST /webhook/hagrid-start**. The model secretly decides Hagrid\'s opening, ceiling and trades (JSON). The UI keeps it hidden and sends it back every turn.', [-40, -440], 980, 300, 5),
   webhook('Start meeting', 'hagrid-start', 'lastNode', '5b0e6c1e-3a52-4c0e-9d1a-7f3e2b1c4a01', [0, -300]),
   code('Build hidden position request', shared + '\n' + read('start.js'), [240, -300]),
   ollamaHttp('Ollama: decide position', [480, -300]),
@@ -73,6 +82,19 @@ const nodes = [
   code('Build scorecard request', shared + '\n' + read('score.js'), [240, 600]),
   ollamaHttp('Ollama: score', [480, 600]),
   code('Parse scorecard', "const KIND = 'score';\n" + parse, [720, 600]),
+
+  sticky('## 4. Forget a meeting\nUI calls **POST /webhook/hagrid-forget** when you delete a past meeting. Wipes that meeting\'s chat memory (same session key as Meeting Memory, so it hits the same buffer).', [-40, 800], 980, 440, 3),
+  webhook('Forget meeting', 'hagrid-forget', 'lastNode', 'e7a2c4f1-9b3d-4e6a-8c1f-4d5e6f7a8b04', [0, 940]),
+  code('Get session id', "const b = $input.first().json.body || {};\nconst sessionId = String(b.sessionId ?? '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);\nif (!sessionId) return [{ json: { ok: false, error: 'No sessionId' } }];\nreturn [{ json: { sessionId } }];", [240, 940]),
+  {
+    parameters: { mode: 'delete', deleteMode: 'all' },
+    name: 'Delete meeting memory', type: '@n8n/n8n-nodes-langchain.memoryManager', typeVersion: 1.1, position: [480, 940], id: 'memory-manager-forget',
+  },
+  {
+    parameters: { sessionIdType: 'customKey', sessionKey: '={{ $json.sessionId }}', contextWindowLength: 30 },
+    name: 'Same Meeting Memory', type: '@n8n/n8n-nodes-langchain.memoryBufferWindow', typeVersion: 1.3, position: [480, 1140], id: 'memory-forget',
+  },
+  code('Confirm forget', "return [{ json: { ok: true, sessionId: $('Get session id').first().json.sessionId } }];", [720, 940]),
 ];
 
 const main = (to) => ({ main: [[{ node: to, type: 'main', index: 0 }]] });
@@ -87,8 +109,12 @@ const connections = {
   'End meeting': main('Build scorecard request'),
   'Build scorecard request': main('Ollama: score'),
   'Ollama: score': main('Parse scorecard'),
+  'Forget meeting': main('Get session id'),
+  'Get session id': main('Delete meeting memory'),
+  'Same Meeting Memory': { ai_memory: [[{ node: 'Delete meeting memory', type: 'ai_memory', index: 0 }]] },
+  'Delete meeting memory': main('Confirm forget'),
 };
 
-const wf = { name: 'Meeting with Mr Hagrid', nodes, connections, settings: { executionOrder: 'v1' }, pinData: {} };
+const wf = { id: WORKFLOW_ID, name: 'Meeting with Mr Hagrid', nodes, connections, settings: { executionOrder: 'v1' }, pinData: {}, meta: { hagridVersion: VERSION } };
 fs.writeFileSync(out, JSON.stringify(wf, null, 2));
 console.log('wrote', out, nodes.length, 'nodes');

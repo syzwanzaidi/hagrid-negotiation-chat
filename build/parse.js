@@ -9,6 +9,26 @@ if (!data || typeof data !== 'object') {
   return [{ json: { ok: false, error: 'The model did not return valid JSON. Try again.', raw: raw.slice(0, 500) } }];
 }
 if (KIND === 'start') {
+  // The model returns one ordered list (worst -> best); the rest of the app uses opening / steps / ceiling.
+  if (Array.isArray(data.offers) && data.offers.length) {
+    const o = data.offers.map((x) => String(x || '').trim()).filter(Boolean);
+    data.opening_position = o[0];
+    data.steps = o.slice(1, -1);
+    data.ceiling = o.length > 1 ? o[o.length - 1] : o[0];
+    delete data.offers;
+  }
+  // Never more than they ask for: if the topic names a quantity ("2 days a week"), cap every offer at it.
+  try {
+    const topic = String($('Start meeting').first().json.body.topic || '');
+    const q = topic.match(/(\d+)\s*(day|week|month|hour)s?\b/i);
+    if (q) {
+      const max = Number(q[1]), unit = q[2];
+      const cap = (s) => String(s || '').replace(new RegExp(`(\\d+)(\\s*-?\\s*)(${unit}s?)\\b`, 'gi'), (all, n, sp, u) => (Number(n) > max ? `${max}${sp}${max === 1 ? unit : unit + 's'}` : all));
+      data.opening_position = cap(data.opening_position);
+      data.steps = (data.steps || []).map(cap);
+      data.ceiling = cap(data.ceiling);
+    }
+  } catch (e) { /* topic not available (tests) */ }
   // Safety net for money topics: force opening < steps < ceiling inside the range computed upstream.
   let money = null;
   try { money = $('Build hidden position request').first().json.money; } catch (e) { money = null; }
@@ -29,7 +49,7 @@ if (KIND === 'start') {
     data.steps = steps.map((s, i) => {
       let v = num(s);
       const want = r50(o + ((c - o) * (i + 1)) / (steps.length + 1));
-      if (v == null || v <= prev || v >= c) { v = want; s = setNum(s, v); }
+      v = want; s = setNum(s, v); // evenly spaced; the model's own steps were often lopsided (RM3,600 -> RM4,200)
       prev = v;
       return s;
     });
@@ -39,7 +59,9 @@ if (KIND === 'start') {
     data.steps = data.steps.map(plain);
     data.ceiling = plain(data.ceiling);
   }
-  return [{ json: { ok: true, brief: data } }];
+  // The UI uses money.cur/ask to resize the ladder if they state a different target in the chat.
+  if (money) data.money = { cur: money.cur, ask: money.ask };
+  return [{ json: { ok: true, brief: data, version: VERSION } }];
 }
 try { data.outcome = $('Build scorecard request').first().json.outcome; } catch (e) { data.outcome = data.outcome || 'unfinished'; }
 data.score = Math.max(1, Math.min(10, Math.round(Number(data.score) || 1)));
