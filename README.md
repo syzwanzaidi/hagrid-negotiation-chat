@@ -1,6 +1,6 @@
 # Mr Hagrid · Negotiation Simulator
 
-Rehearse a hard conversation with your director before the real one. Mr Hagrid pushes back, gets impatient, matches outside offers, and reacts to anything you say. Every move you make is read live, and you get an honest scorecard at the end.
+Rehearse a hard conversation with your boss before the real one. Mr Hagrid pushes back, gets impatient, matches outside offers, and reacts to anything you say. Every move you make is read live, and you get an honest scorecard at the end.
 
 Everything runs **on your own machine**: a local LLM through [Ollama](https://ollama.com) and the workflow engine [n8n](https://n8n.io). Nothing is sent to the cloud.
 
